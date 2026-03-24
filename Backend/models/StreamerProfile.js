@@ -47,6 +47,26 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       defaultValue: 0
     },
+    enable_media_share: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false
+    },
+    enable_vn: {
+      type: DataTypes.BOOLEAN,
+      allowNull: true,
+      defaultValue: false
+    },
+    alert_template: {
+      type: DataTypes.STRING(30),
+      allowNull: true,
+      defaultValue: "classic"
+    },
+    banned_keys: {
+      type: DataTypes.TEXT,
+      allowNull: true,
+      defaultValue: "[]"
+    },
   }, {
     tableName: "streamer_profiles",
     timestamps: false,

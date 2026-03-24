@@ -2,7 +2,8 @@ import React from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import PublicProfile from "./pages/PublicProfile";
 import Dashboard from "./pages/Dashboard";
-import Overlay from "./pages/Overlay";
+import AlertOverlay from "./pages/AlertOverlay";
+import MilestoneOverlay from "./pages/MilestoneOverlay";
 
 /**
  * Top-level application router mounting distinct modes seamlessly.
@@ -15,7 +16,9 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/overlay/:streamerAddress" element={<Overlay />} />
+        <Route path="/overlay/alert/:streamerAddress" element={<AlertOverlay />} />
+        <Route path="/overlay/milestone/:streamerAddress" element={<MilestoneOverlay />} />
+        <Route path="/overlay/:streamerAddress" element={<AlertOverlay />} />
         <Route path="/:streamerAddress" element={<PublicProfile />} />
       </Routes>
     </Router>

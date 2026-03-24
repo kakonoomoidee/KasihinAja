@@ -7,10 +7,10 @@ const ROUTER_ABI = [
 ];
 
 /**
- * Handles the extraction and storage of a donation event, communicating the changes to active WebSockets.
+ * Handles the extraction and storage of a donation event, updates milestones, and broadcasts to WebSockets.
  *
  * @param {string} donor The address of the donor.
- * @param {string} streamer The addressed assigned to receive the stream tip.
+ * @param {string} streamer The address assigned to receive the stream tip.
  * @param {bigint} amount The amount sent as a tip.
  * @param {string} message The tip message.
  * @param {object} event The raw ethers event object.
@@ -19,8 +19,16 @@ const ROUTER_ABI = [
  */
 const handleEvent = async (donor, streamer, amount, message, event, wss) => {
   try {
-    const cleanMessage = filterMessage(message);
+    const profile = await StreamerProfile.findByPk(streamer);
+
+    let customBlacklist = [];
+    if (profile && profile.custom_blacklist) {
+      try { customBlacklist = JSON.parse(profile.custom_blacklist); } catch { customBlacklist = []; }
+    }
+
+    const cleanMessage = filterMessage(message, customBlacklist);
     const amountString = amount.toString();
+    const ethAmount = parseFloat(ethers.formatEther(amount));
 
     await DonationHistory.create({
       donor_address: donor,
@@ -29,7 +37,10 @@ const handleEvent = async (donor, streamer, amount, message, event, wss) => {
       filtered_message: cleanMessage,
     });
 
-    const profile = await StreamerProfile.findByPk(streamer);
+    if (profile) {
+      profile.milestone_current = (profile.milestone_current || 0) + ethAmount;
+      await profile.save();
+    }
 
     wss.clients.forEach((client) => {
       if (client.readyState === 1 && client.streamerRoom === streamer.toLowerCase()) {
@@ -51,7 +62,7 @@ const handleEvent = async (donor, streamer, amount, message, event, wss) => {
 };
 
 /**
- * Initializes the EVM listener to subscribe to blockchain tip events and stream them to connected WebSocket clients.
+ * Initializes the EVM listener to subscribe to blockchain tip events.
  *
  * @param {object} wss The WebSocket server instance.
  * @returns {void}
