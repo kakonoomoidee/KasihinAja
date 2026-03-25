@@ -105,6 +105,16 @@ export default function PublicProfile() {
       await provider.send("eth_requestAccounts", []);
       const signer = await provider.getSigner();
 
+      const donorAddr = await signer.getAddress();
+
+      if (youtubeUrl) {
+        await axios.post(`${API_URL}/media-attach/${streamerAddress}`, {
+          youtube_url: youtubeUrl,
+          youtube_start: youtubeStart,
+          donor: donorAddr
+        });
+      }
+
       const contract = new ethers.Contract(DONATION_ROUTER_ADDRESS, ROUTER_ABI, signer);
 
       const tx = await contract.donate(streamerAddress, message, {
@@ -113,15 +123,6 @@ export default function PublicProfile() {
 
       setStatus("Transaction submitted! Awaiting confirmation...");
       await tx.wait();
-
-      if (youtubeUrl) {
-        const donorAddr = await signer.getAddress();
-        await axios.post(`${API_URL}/media-attach/${streamerAddress}`, {
-          youtube_url: youtubeUrl,
-          youtube_start: youtubeStart,
-          donor: donorAddr
-        });
-      }
 
       setStatus("Donation confirmed!");
       setAmount("");
@@ -179,6 +180,7 @@ export default function PublicProfile() {
             <input
               type="number"
               step="0.0001"
+              min="0.0001"
               required
               className={glassInput}
               value={amount}
@@ -215,7 +217,8 @@ export default function PublicProfile() {
                   min="0"
                   className="w-24 bg-white/10 border border-white/20 rounded-lg p-2 outline-none text-white font-bold text-sm"
                   value={youtubeStart}
-                  onChange={(e) => setYoutubeStart(parseInt(e.target.value) || 0)}
+                  onChange={(e) => setYoutubeStart(e.target.value === "" ? "" : Math.max(0, parseInt(e.target.value) || 0))}
+                  onBlur={(e) => { if (e.target.value === "") setYoutubeStart(0); }}
                 />
               </div>
             </div>

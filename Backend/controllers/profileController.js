@@ -193,23 +193,12 @@ const mediaAttach = async (req, res) => {
   try {
     const { address } = req.params;
     const { youtube_url, youtube_start, donor } = req.body;
+    const { addPendingMedia } = require("../utils/pendingMedia");
 
-    const wss = req.app.locals.wss;
-
-    if (wss) {
-      wss.clients.forEach((client) => {
-        if (client.readyState === 1 && client.streamerRoom === address.toLowerCase()) {
-          client.send(JSON.stringify({
-            type: "MEDIA_SHARE",
-            payload: {
-              youtube_url: youtube_url || null,
-              youtube_start: youtube_start || 0,
-              donor: donor || "Anonymous"
-            }
-          }));
-        }
-      });
-    }
+    addPendingMedia(donor, address, {
+      youtube_url: youtube_url || null,
+      youtube_start: youtube_start || 0,
+    });
 
     res.json({ success: true });
   } catch (error) {

@@ -3,34 +3,54 @@ const path = require("path");
 const DonationRouter = artifacts.require("DonationRouter");
 
 /**
- * Deploys the DonationRouter contract to the local network and updates the backend environment variables.
+ * Updates a key=value pair in a .env file. Creates the file if it does not exist.
+ *
+ * @param {string} filePath Absolute path to the .env file.
+ * @param {string} key The environment variable name.
+ * @param {string} value The environment variable value.
+ * @returns {void}
+ */
+const updateEnvFile = (filePath, key, value) => {
+  const dirPath = path.dirname(filePath);
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
+  }
+
+  let envData = "";
+  if (fs.existsSync(filePath)) {
+    envData = fs.readFileSync(filePath, "utf8");
+  }
+
+  const entry = `${key}=${value}`;
+  const regex = new RegExp(`^${key}=.*`, "gm");
+
+  if (regex.test(envData)) {
+    envData = envData.replace(regex, entry);
+  } else {
+    envData += `\n${entry}\n`;
+  }
+
+  fs.writeFileSync(filePath, envData.trim() + "\n");
+};
+
+/**
+ * Deploys the DonationRouter contract and syncs the address to both backend and frontend .env files.
  *
  * @param {object} deployer The Truffle deployer instance.
- * @returns {void}
+ * @returns {Promise<void>}
  */
 module.exports = async function (deployer) {
   await deployer.deploy(DonationRouter);
   const routerInstance = await DonationRouter.deployed();
+  const contractAddress = routerInstance.address;
 
-  const envFilePath = path.resolve(__dirname, "../../Backend/.env");
-  const backendDirPath = path.dirname(envFilePath);
+  const backendEnv = path.resolve(__dirname, "../../Backend/.env");
+  const frontendEnv = path.resolve(__dirname, "../../Frontend/.env");
 
-  if (!fs.existsSync(backendDirPath)) {
-    fs.mkdirSync(backendDirPath, { recursive: true });
-  }
+  updateEnvFile(backendEnv, "DONATION_ROUTER_ADDRESS", contractAddress);
+  updateEnvFile(frontendEnv, "VITE_DONATION_ROUTER_ADDRESS", contractAddress);
 
-  let envData = "";
-  if (fs.existsSync(envFilePath)) {
-    envData = fs.readFileSync(envFilePath, "utf8");
-  }
-
-  const variableString = `DONATION_ROUTER_ADDRESS=${routerInstance.address}`;
-
-  if (envData.includes("DONATION_ROUTER_ADDRESS=")) {
-    envData = envData.replace(/DONATION_ROUTER_ADDRESS=.*/g, variableString);
-  } else {
-    envData += `\n${variableString}\n`;
-  }
-
-  fs.writeFileSync(envFilePath, envData.trim() + "\n");
+  console.log(`Contract deployed at: ${contractAddress}`);
+  console.log(`Updated: ${backendEnv}`);
+  console.log(`Updated: ${frontendEnv}`);
 };

@@ -1,5 +1,6 @@
 const { ethers } = require("ethers");
 const { filterMessage } = require("./aiFilter");
+const { getPendingMedia } = require("./pendingMedia");
 const { DonationHistory, StreamerProfile } = require("../models");
 
 const ROUTER_ABI = [
@@ -13,11 +14,10 @@ const ROUTER_ABI = [
  * @param {string} streamer The address assigned to receive the stream tip.
  * @param {bigint} amount The amount sent as a tip.
  * @param {string} message The tip message.
- * @param {object} event The raw ethers event object.
  * @param {object} wss The WebSocket server instance.
  * @returns {Promise<void>}
  */
-const handleEvent = async (donor, streamer, amount, message, event, wss) => {
+const handleEvent = async (donor, streamer, amount, message, wss) => {
   try {
     const profile = await StreamerProfile.findByPk(streamer);
 
@@ -38,9 +38,21 @@ const handleEvent = async (donor, streamer, amount, message, event, wss) => {
     });
 
     if (profile) {
-      profile.milestone_current = (profile.milestone_current || 0) + ethAmount;
+      const newCurrent = (profile.milestone_current || 0) + ethAmount;
+      const target = profile.milestone_target || 0;
+
+      if (target > 0 && newCurrent >= target) {
+        profile.milestone_current = 0;
+        console.log(`Milestone reached! Resetting for ${streamer}`);
+      } else {
+        profile.milestone_current = newCurrent;
+      }
       await profile.save();
     }
+
+    const media = getPendingMedia(donor, streamer);
+
+    console.log(`Donation: ${donor} -> ${streamer} | ${ethAmount} ETH${media ? " [+media]" : ""}`);
 
     wss.clients.forEach((client) => {
       if (client.readyState === 1 && client.streamerRoom === streamer.toLowerCase()) {
@@ -51,29 +63,41 @@ const handleEvent = async (donor, streamer, amount, message, event, wss) => {
             streamer,
             amount: amountString,
             message: cleanMessage,
-            profile: profile ? profile.toJSON() : null
+            profile: profile ? profile.toJSON() : null,
+            youtube_url: media ? media.youtube_url : null,
+            youtube_start: media ? media.youtube_start : 0
           }
         }));
       }
     });
   } catch (error) {
-    console.error(error);
+    console.error("Event handler error:", error);
   }
 };
 
 /**
- * Initializes the EVM listener to subscribe to blockchain tip events.
+ * Initializes the EVM listener using HTTP polling to subscribe to blockchain donation events.
  *
  * @param {object} wss The WebSocket server instance.
  * @returns {void}
  */
 const listenToEVM = (wss) => {
-  const provider = new ethers.WebSocketProvider(process.env.RPC_URL);
+  const rpcUrl = process.env.RPC_URL;
+  let provider;
+
+  if (rpcUrl.startsWith("ws://") || rpcUrl.startsWith("wss://")) {
+    provider = new ethers.WebSocketProvider(rpcUrl);
+  } else {
+    provider = new ethers.JsonRpcProvider(rpcUrl);
+  }
+
   const contract = new ethers.Contract(process.env.DONATION_ROUTER_ADDRESS, ROUTER_ABI, provider);
 
-  contract.on("DonationReceived", (donor, streamer, amount, message, event) => {
-    handleEvent(donor, streamer, amount, message, event, wss);
+  contract.on("DonationReceived", (donor, streamer, amount, message) => {
+    handleEvent(donor, streamer, amount, message, wss);
   });
+
+  console.log("EVM listener active on", rpcUrl);
 };
 
 module.exports = { listenToEVM };
