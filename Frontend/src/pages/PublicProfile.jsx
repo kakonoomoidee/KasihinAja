@@ -107,17 +107,36 @@ export default function PublicProfile() {
 
       const donorAddr = await signer.getAddress();
 
+      let mediaData = null;
+
       if (youtubeUrl) {
-        await axios.post(`${API_URL}/media-attach/${streamerAddress}`, {
-          youtube_url: youtubeUrl,
-          youtube_start: youtubeStart,
-          donor: donorAddr
-        });
+        mediaData = { youtube_url: youtubeUrl, youtube_start: youtubeStart };
       }
+
+      if (vnBlob) {
+        const vnBase64 = await new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(vnBlob);
+        });
+        mediaData = { ...(mediaData || {}), vn_data: vnBase64 };
+      }
+
+      console.log("[DEBUG 1] Payload sent to Intent API:", JSON.stringify(mediaData));
+
+      setStatus("Registering donation intent...");
+      const intentRes = await axios.post(`${API_URL}/donation-intent`, {
+        donor_address: donorAddr,
+        streamer_address: streamerAddress,
+        amount: amount,
+        media_data: mediaData,
+      });
+      const donationToken = intentRes.data.token;
 
       const contract = new ethers.Contract(DONATION_ROUTER_ADDRESS, ROUTER_ABI, signer);
 
-      const tx = await contract.donate(streamerAddress, message, {
+      const tx = await contract.donate(streamerAddress, message, donationToken, {
         value: ethers.parseEther(amount)
       });
 

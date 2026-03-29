@@ -52,7 +52,7 @@ const updateProfile = async (req, res) => {
       return;
     }
 
-    const { display_name, avatar_url, msg_color, user_color, bg_color, custom_blacklist, milestone_target, enable_media_share, enable_vn, alert_template, banned_keys } = payload;
+    const { display_name, avatar_url, msg_color, user_color, bg_color, custom_blacklist, milestone_name, milestone_target, enable_media_share, enable_vn, alert_template, banned_keys } = payload;
 
     const [profile, created] = await StreamerProfile.findOrCreate({
       where: { wallet_address: address },
@@ -63,6 +63,7 @@ const updateProfile = async (req, res) => {
         user_color,
         bg_color,
         custom_blacklist: custom_blacklist ? JSON.stringify(custom_blacklist) : "[]",
+        milestone_name: milestone_name || "",
         milestone_target: milestone_target || 0,
         enable_media_share: enable_media_share || false,
         enable_vn: enable_vn || false,
@@ -78,6 +79,7 @@ const updateProfile = async (req, res) => {
       if (user_color !== undefined) profile.user_color = user_color;
       if (bg_color !== undefined) profile.bg_color = bg_color;
       if (custom_blacklist !== undefined) profile.custom_blacklist = JSON.stringify(custom_blacklist);
+      if (milestone_name !== undefined) profile.milestone_name = milestone_name;
       if (milestone_target !== undefined) profile.milestone_target = milestone_target;
       if (enable_media_share !== undefined) profile.enable_media_share = enable_media_share;
       if (enable_vn !== undefined) profile.enable_vn = enable_vn;
@@ -140,6 +142,50 @@ const getStats = async (req, res) => {
 };
 
 /**
+ * Resets the milestone current progress securely.
+ *
+ * @param {object} req The Express request object.
+ * @param {object} res The Express response object.
+ * @returns {Promise<void>}
+ */
+const resetMilestone = async (req, res) => {
+  try {
+    const { address } = req.params;
+    const { signature, payload } = req.body;
+
+    if (!verifySignature(address, signature, JSON.stringify(payload))) {
+      res.status(401).json({ error: "Invalid signature" });
+      return;
+    }
+
+    const profile = await StreamerProfile.findByPk(address);
+    if (profile) {
+      profile.milestone_current = 0;
+      await profile.save();
+      
+      const wss = req.app.locals.wss;
+      if (wss) {
+        wss.clients.forEach((client) => {
+          if (client.readyState === 1 && client.streamerRoom === address.toLowerCase()) {
+            client.send(JSON.stringify({
+              type: "MILESTONE_UPDATE",
+              payload: {
+                milestone_current: 0,
+                milestone_target: profile.milestone_target,
+              }
+            }));
+          }
+        });
+      }
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
+/**
  * Triggers a simulated WebSocket donation event for exact OBS overlay testing securely.
  *
  * @param {object} req The Express request object.
@@ -163,13 +209,15 @@ const testAlert = async (req, res) => {
       wss.clients.forEach((client) => {
         if (client.readyState === 1 && client.streamerRoom === address.toLowerCase()) {
           client.send(JSON.stringify({
-            type: "NEW_DONATION",
+            type: "VERIFIED_DONATION",
             payload: {
               donor: "0xTEST...ABCD",
               streamer: address,
               amount: ethers.parseEther("0.420").toString(),
               message: "This is a test alert to verify your OBS configuration!",
-              profile: profile ? profile.toJSON() : null
+              profile: profile ? profile.toJSON() : null,
+              youtube_url: null,
+              vn_url: null
             }
           }));
         }
@@ -182,34 +230,10 @@ const testAlert = async (req, res) => {
   }
 };
 
-/**
- * Relays media share data to active OBS overlay WebSocket clients for a specific streamer.
- *
- * @param {object} req The Express request object.
- * @param {object} res The Express response object.
- * @returns {Promise<void>}
- */
-const mediaAttach = async (req, res) => {
-  try {
-    const { address } = req.params;
-    const { youtube_url, youtube_start, donor } = req.body;
-    const { addPendingMedia } = require("../utils/pendingMedia");
-
-    addPendingMedia(donor, address, {
-      youtube_url: youtube_url || null,
-      youtube_start: youtube_start || 0,
-    });
-
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: "Server error" });
-  }
-};
-
 module.exports = {
   getProfile,
   updateProfile,
   getStats,
-  testAlert,
-  mediaAttach
+  resetMilestone,
+  testAlert
 };

@@ -50,7 +50,16 @@ module.exports = async function (deployer) {
   updateEnvFile(backendEnv, "DONATION_ROUTER_ADDRESS", contractAddress);
   updateEnvFile(frontendEnv, "VITE_DONATION_ROUTER_ADDRESS", contractAddress);
 
+  const backendAbiPath = path.resolve(__dirname, "../../Backend/utils/DonationRouter.json");
+  const frontendAbiPath = path.resolve(__dirname, "../../Frontend/src/utils/DonationRouter.json");
+  const abiJson = JSON.stringify({ abi: DonationRouter.abi }, null, 2);
+  
+  fs.writeFileSync(backendAbiPath, abiJson);
+  fs.writeFileSync(frontendAbiPath, abiJson);
+
   console.log(`Contract deployed at: ${contractAddress}`);
   console.log(`Updated: ${backendEnv}`);
   console.log(`Updated: ${frontendEnv}`);
+  console.log(`Exported ABI to: ${backendAbiPath}`);
+  console.log(`Exported ABI to: ${frontendAbiPath}`);
 };

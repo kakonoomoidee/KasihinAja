@@ -5,6 +5,24 @@ import { API_URL } from "../utils/config";
 import { ethers } from "ethers";
 
 /**
+ * @param {string} url The YouTube URL string.
+ * @returns {string|null} The extracted video ID or null.
+ */
+const extractYoutubeId = (url) => {
+  if (!url) return null;
+  const patterns = [
+    /(?:youtube\.com\/watch\?v=)([^&]+)/,
+    /(?:youtu\.be\/)([^?]+)/,
+    /(?:youtube\.com\/embed\/)([^?]+)/
+  ];
+  for (const p of patterns) {
+    const match = url.match(p);
+    if (match) return match[1];
+  }
+  return null;
+};
+
+/**
  * Streamer dashboard with glassmorphic sidebar, bento grid layout, and advanced controls.
  *
  * @returns {React.ReactElement} The dashboard React node.
@@ -51,6 +69,7 @@ export default function Dashboard() {
   const [msgColor, setMsgColor] = useState("#ffffff");
   const [userColor, setUserColor] = useState("#4f46e5");
   const [bgColor, setBgColor] = useState("#000000");
+  const [milestoneName, setMilestoneName] = useState("");
   const [milestoneTarget, setMilestoneTarget] = useState(0);
   const [blacklistText, setBlacklistText] = useState("");
   const [alertTemplate, setAlertTemplate] = useState("classic");
@@ -60,6 +79,7 @@ export default function Dashboard() {
   const [showAlertUrl, setShowAlertUrl] = useState(false);
   const [showMilestoneUrl, setShowMilestoneUrl] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [selectedDonation, setSelectedDonation] = useState(null);
 
   const [history, setHistory] = useState([]);
   const [stats, setStats] = useState(null);
@@ -110,6 +130,7 @@ export default function Dashboard() {
         setMsgColor(res.data.msg_color || "#ffffff");
         setUserColor(res.data.user_color || "#4f46e5");
         setBgColor(res.data.bg_color || "#000000");
+        setMilestoneName(res.data.milestone_name || "");
         setMilestoneTarget(res.data.milestone_target || 0);
         setAlertTemplate(res.data.alert_template || "classic");
         setEnableMediaShare(!!res.data.enable_media_share);
@@ -151,6 +172,7 @@ export default function Dashboard() {
         msg_color: msgColor,
         user_color: userColor,
         bg_color: bgColor,
+        milestone_name: milestoneName,
         milestone_target: parseFloat(milestoneTarget),
         custom_blacklist: blArray,
         alert_template: alertTemplate,
@@ -170,6 +192,49 @@ export default function Dashboard() {
       fetchData(address);
     } catch {
       setStatus("Failed to save settings.");
+    } finally {
+      setLoading(false);
+      setTimeout(() => setStatus(""), 3000);
+    }
+  };
+
+  /**
+   * Resets the milestone securely using Web3 signature.
+   *
+   * @returns {Promise<void>}
+   */
+  const handleResetMilestone = async () => {
+    try {
+      setLoading(true);
+      const payload = { timestamp: Date.now() };
+      const signature = await signPayload(window.signerInstance, payload);
+      await axios.post(`${API_URL}/profile/${address}/reset-milestone`, { signature, payload });
+      setStatus("Milestone reset successfully!");
+      fetchData(address);
+    } catch {
+      setStatus("Reset failed.");
+    } finally {
+      setLoading(false);
+      setTimeout(() => setStatus(""), 3000);
+    }
+  };
+
+  /**
+   * Triggers a replay of a past donation securely via Web3 signature.
+   *
+   * @param {string} id The donation history ID.
+   * @param {string} streamer_address The streamer's address.
+   * @returns {Promise<void>}
+   */
+  const handleReplayAlert = async (id, streamer_address) => {
+    try {
+      setLoading(true);
+      const payload = { timestamp: Date.now(), address: streamer_address };
+      const signature = await signPayload(window.signerInstance, payload);
+      await axios.post(`${API_URL}/replay-alert/${id}`, { signature, payload });
+      setStatus("Alert replayed on OBS!");
+    } catch {
+      setStatus("Replay failed.");
     } finally {
       setLoading(false);
       setTimeout(() => setStatus(""), 3000);
@@ -247,7 +312,6 @@ export default function Dashboard() {
   };
 
   const glass = "bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl";
-  const glassLight = "bg-white/20 backdrop-blur-lg border border-white/30 rounded-2xl";
   const glassInput = "bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-3 outline-none text-white placeholder-white/40 font-medium";
   const btnPrimary = "bg-blue-500/80 hover:bg-blue-400 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-xl border border-white/20 transition-all cursor-pointer disabled:opacity-40";
   const btnGhost = "bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-3 px-5 rounded-xl border border-white/20 transition-all cursor-pointer";
@@ -433,19 +497,74 @@ export default function Dashboard() {
           </div>
         );
       }
-      case "milestones":
+      case "milestones": {
+        const mc = stats ? stats.milestone_current : 0;
+        const mt = parseFloat(milestoneTarget) || 0;
+        const pct = mt > 0 ? Math.min(100, (mc / mt) * 100) : 0;
+        const completed = mt > 0 && mc >= mt;
+
         return (
           <div className="space-y-6 fade-in">
             <h2 className="text-2xl font-extrabold text-white tracking-tight">Milestones</h2>
-            <form onSubmit={handleSaveProfile} className={`space-y-5 ${glass} p-6`}>
-              <div>
-                <label className="block text-xs font-bold text-emerald-300 mb-3 uppercase tracking-wider">Donation Goal (ETH)</label>
-                <input type="number" step="0.001" value={milestoneTarget} onChange={(e) => setMilestoneTarget(e.target.value)} className={`w-full ${glassInput} font-extrabold`} />
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div 
+                className="col-span-1 md:col-span-2 relative p-8 rounded-[2rem] overflow-hidden"
+                style={{
+                  background: "linear-gradient(135deg, rgba(15,23,42,0.8) 0%, rgba(30,58,138,0.4) 100%)",
+                  backdropFilter: "blur(24px)",
+                  WebkitBackdropFilter: "blur(24px)",
+                  border: "1px solid rgba(255,255,255,0.15)",
+                  boxShadow: "0 20px 40px rgba(0,0,0,0.3)"
+                }}
+              >
+                <div className="flex justify-between items-end mb-4">
+                  <div>
+                    <h3 className="text-sm font-extrabold text-white/50 uppercase tracking-widest mb-1">Current Progress</h3>
+                    <p className="text-3xl font-extrabold text-white tracking-tight">{mc.toFixed(4)} <span className="text-xl text-white/40 font-mono">ETH</span></p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm font-extrabold uppercase tracking-widest mb-1" style={{ color: completed ? "#4ade80" : "#60a5fa" }}>{completed ? "Goal Reached!" : `Goal: ${mt.toFixed(4)} ETH`}</p>
+                    <p className="text-xl font-bold text-white/40">{pct.toFixed(1)}%</p>
+                  </div>
+                </div>
+
+                <div className="w-full h-6 rounded-full overflow-hidden p-1" style={{ background: "rgba(0,0,0,0.4)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                  <div 
+                    className="h-full rounded-full transition-all duration-1000 relative"
+                    style={{ 
+                      width: `${pct}%`, 
+                      background: completed ? "linear-gradient(90deg, #10b981, #34d399)" : "linear-gradient(90deg, #0ea5e9, #2dd4bf)",
+                      boxShadow: completed ? "0 0 20px rgba(52,211,153,0.5)" : "0 0 20px rgba(45,212,191,0.5)"
+                    }}
+                  >
+                    <div className="absolute inset-0 bg-white/20 w-full h-full rounded-full animate-pulse blur-sm"></div>
+                  </div>
+                </div>
               </div>
-              <button disabled={loading} type="submit" className="bg-emerald-500/70 hover:bg-emerald-400 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-xl border border-white/20 transition-all cursor-pointer disabled:opacity-40">{loading ? "Saving..." : "Set Milestone"}</button>
-            </form>
+
+              <form onSubmit={handleSaveProfile} className="col-span-1 md:col-span-2 bg-white/10 backdrop-blur-xl border border-white/20 p-8 rounded-[2rem]">
+                <div className="mb-6">
+                  <label className="block text-xs font-bold text-emerald-300 mb-3 uppercase tracking-wider">Milestone Title</label>
+                  <input type="text" value={milestoneName} onChange={(e) => setMilestoneName(e.target.value)} className="w-full bg-black/20 backdrop-blur-sm border border-white/20 rounded-2xl p-4 outline-none text-white font-extrabold text-xl shadow-inner focus:border-emerald-400/50 transition-colors" placeholder="e.g. New Gaming Setup" />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-emerald-300 mb-3 uppercase tracking-wider">Set New Donation Goal (ETH)</label>
+                  <div className="flex flex-col sm:flex-row gap-4">
+                    <input type="number" step="0.001" value={milestoneTarget} onChange={(e) => setMilestoneTarget(e.target.value)} className="flex-1 bg-black/20 backdrop-blur-sm border border-white/20 rounded-2xl p-4 outline-none text-white font-extrabold text-xl shadow-inner focus:border-emerald-400/50 transition-colors" />
+                    <button disabled={loading} type="submit" className="bg-emerald-500/80 hover:bg-emerald-400 backdrop-blur-md text-white font-bold py-4 px-8 rounded-2xl border border-emerald-300/30 shadow-xl transition-all cursor-pointer disabled:opacity-40 whitespace-nowrap">
+                      {loading ? "Saving..." : "Save Milestone"}
+                    </button>
+                    <button type="button" onClick={handleResetMilestone} disabled={loading} className="bg-red-500/80 hover:bg-red-400 backdrop-blur-md text-white font-bold py-4 px-8 rounded-2xl border border-red-300/30 shadow-xl transition-all cursor-pointer disabled:opacity-40 whitespace-nowrap">
+                      Reset Goal
+                    </button>
+                  </div>
+                </div>
+              </form>
+            </div>
           </div>
         );
+      }
       case "history":
         return (
           <div className="space-y-5 fade-in">
@@ -455,7 +574,7 @@ export default function Dashboard() {
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {history.map((item) => (
-                  <div key={item.id} className={`${glass} p-5`}>
+                  <div key={item.id} className={`${glass} p-5 cursor-pointer hover:bg-white/10 transition-colors relative group`} onClick={() => setSelectedDonation(item)}>
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <p className="font-mono text-sm font-bold text-blue-300 truncate max-w-[200px]" title={item.donor_address}>{item.donor_address.slice(0, 8)}...{item.donor_address.slice(-6)}</p>
@@ -463,14 +582,29 @@ export default function Dashboard() {
                       </div>
                       <span className="text-lg font-extrabold text-emerald-400 whitespace-nowrap">{ethers.formatEther(item.amount)} ETH</span>
                     </div>
+                    {/* Media Badges */}
+                    {(item.media_url || item.youtube_url || item.vn_url || item.vn_data) && (
+                      <div className="flex gap-2 mb-3">
+                        {(item.media_url || item.youtube_url) && <span className="bg-red-500/20 text-red-300 text-[10px] uppercase font-bold px-2 py-1 rounded-md border border-red-400/30">Has Video</span>}
+                        {(item.vn_url || item.vn_data) && <span className="bg-indigo-500/20 text-indigo-300 text-[10px] uppercase font-bold px-2 py-1 rounded-md border border-indigo-400/30">Has Audio</span>}
+                      </div>
+                    )}
                     <p className="text-white/70 font-medium text-sm break-words leading-relaxed bg-white/5 p-3 rounded-xl border border-white/10">{item.filtered_message}</p>
-                    <button
-                      onClick={() => banKey(item.donor_address)}
-                      disabled={bannedKeys.includes(item.donor_address)}
-                      className="mt-3 text-xs font-bold text-red-300 bg-red-500/15 hover:bg-red-500/30 border border-red-400/30 px-4 py-2 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
-                    >
-                      {bannedKeys.includes(item.donor_address) ? "Already Banned" : "Ban Public Key"}
-                    </button>
+                    <div className="mt-3 flex gap-2">
+                       <button
+                         onClick={(e) => { e.stopPropagation(); banKey(item.donor_address); }}
+                         disabled={bannedKeys.includes(item.donor_address)}
+                         className="flex-1 text-xs font-bold text-red-300 bg-red-500/15 hover:bg-red-500/30 border border-red-400/30 px-3 py-2 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                       >
+                         {bannedKeys.includes(item.donor_address) ? "Banned" : "Ban Key"}
+                       </button>
+                       <button
+                         onClick={(e) => { e.stopPropagation(); handleReplayAlert(item.id, address); }}
+                         className="flex-1 text-xs font-bold text-sky-300 bg-sky-500/15 hover:bg-sky-500/30 border border-sky-400/30 px-3 py-2 rounded-lg transition-colors cursor-pointer"
+                       >
+                         Replay on OBS
+                       </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -549,6 +683,61 @@ export default function Dashboard() {
         <div className="p-6 md:p-10 pb-24 h-full">
           <div className="max-w-5xl mx-auto">
             {renderContent()}
+            
+            {selectedDonation && (
+              <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md" onClick={() => setSelectedDonation(null)}>
+                <div className="bg-white/10 border border-white/20 rounded-3xl p-8 max-w-xl w-full max-h-[90vh] overflow-y-auto shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
+                  <button onClick={() => setSelectedDonation(null)} className="absolute top-4 right-4 text-white/50 hover:text-white bg-white/5 hover:bg-white/10 rounded-full w-8 h-8 flex items-center justify-center transition-all cursor-pointer">×</button>
+                  <h3 className="text-xl font-extrabold text-white mb-6">Donation Details</h3>
+                  
+                  <div className="space-y-4">
+                    <div className="bg-black/20 rounded-2xl p-4 border border-white/5">
+                      <p className="text-xs text-white/40 font-bold uppercase mb-1">Donor Address</p>
+                      <p className="font-mono text-sm text-blue-300 break-all">{selectedDonation.donor_address}</p>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="bg-black/20 rounded-2xl p-4 border border-white/5">
+                        <p className="text-xs text-white/40 font-bold uppercase mb-1">Amount</p>
+                        <p className="text-xl font-extrabold text-emerald-400">{ethers.formatEther(selectedDonation.amount)} ETH</p>
+                      </div>
+                      <div className="bg-black/20 rounded-2xl p-4 border border-white/5">
+                        <p className="text-xs text-white/40 font-bold uppercase mb-1">Date</p>
+                        <p className="text-sm font-bold text-white/80">{new Date(selectedDonation.created_at).toLocaleString()}</p>
+                      </div>
+                    </div>
+                    
+                    <div className="bg-black/20 rounded-2xl p-4 border border-white/5">
+                      <p className="text-xs text-white/40 font-bold uppercase mb-2">Message</p>
+                      <p className="text-base text-white/90 leading-relaxed font-medium">{selectedDonation.filtered_message}</p>
+                    </div>
+                    
+                    {(selectedDonation.media_url || selectedDonation.youtube_url) && (
+                      <div className="bg-black/20 rounded-2xl p-4 border border-white/5 overflow-hidden">
+                        <p className="text-xs text-white/40 font-bold uppercase mb-2">Attached Media</p>
+                        <a href={selectedDonation.media_url || selectedDonation.youtube_url} target="_blank" rel="noreferrer" className="text-sm text-blue-400 hover:text-blue-300 truncate block font-mono underline mb-2">{selectedDonation.media_url || selectedDonation.youtube_url}</a>
+                        {extractYoutubeId(selectedDonation.media_url || selectedDonation.youtube_url) && (
+                          <iframe width="100%" height="200" src={`https://www.youtube.com/embed/${extractYoutubeId(selectedDonation.media_url || selectedDonation.youtube_url)}`} allowFullScreen className="rounded-xl border border-white/10" />
+                        )}
+                      </div>
+                    )}
+                    
+                    {(selectedDonation.vn_url || selectedDonation.vn_data) && (
+                      <div className="bg-black/20 rounded-2xl p-4 border border-white/5">
+                        <p className="text-xs text-white/40 font-bold uppercase mb-2">Voice Note</p>
+                        <audio src={selectedDonation.vn_data || selectedDonation.vn_url} controls className="w-full" />
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="mt-6 flex gap-3">
+                    <button onClick={() => { handleReplayAlert(selectedDonation.id, address); setSelectedDonation(null); }} className="flex-1 bg-sky-500/80 hover:bg-sky-400 text-white font-bold py-3 rounded-xl border border-sky-400/50 transition-all cursor-pointer">
+                      Replay on OBS
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </main>

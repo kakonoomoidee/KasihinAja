@@ -1,23 +1,23 @@
 const { ethers } = require("ethers");
 const { filterMessage } = require("./aiFilter");
-const { getPendingMedia } = require("./pendingMedia");
 const { DonationHistory, StreamerProfile } = require("../models");
+const { verifyToken } = require("./token");
 
-const ROUTER_ABI = [
-  "event DonationReceived(address indexed donor, address indexed streamer, uint256 amount, string message)"
-];
+const DonationRouter = require("./DonationRouter.json");
+const ROUTER_ABI = DonationRouter.abi;
 
 /**
- * Handles the extraction and storage of a donation event, updates milestones, and broadcasts to WebSockets.
+ * Processes an on-chain donation event, verifies the intent token, and broadcasts to OBS.
  *
- * @param {string} donor The address of the donor.
- * @param {string} streamer The address assigned to receive the stream tip.
- * @param {bigint} amount The amount sent as a tip.
- * @param {string} message The tip message.
+ * @param {string} donor The donor wallet address.
+ * @param {string} streamer The streamer wallet address.
+ * @param {bigint} amount The donation amount in wei.
+ * @param {string} message The donation message.
+ * @param {string} donationToken The off-chain intent UUID.
  * @param {object} wss The WebSocket server instance.
  * @returns {Promise<void>}
  */
-const handleEvent = async (donor, streamer, amount, message, wss) => {
+const handleEvent = async (donor, streamer, amount, message, donationToken, wss) => {
   try {
     const profile = await StreamerProfile.findByPk(streamer);
 
@@ -27,57 +27,88 @@ const handleEvent = async (donor, streamer, amount, message, wss) => {
     }
 
     const cleanMessage = filterMessage(message, customBlacklist);
-    const amountString = amount.toString();
+    const amountWeiString = amount.toString();
     const ethAmount = parseFloat(ethers.formatEther(amount));
+
+    console.log(`Donation [ON-CHAIN] | ${donor} -> ${streamer} | ${ethAmount} ETH | token=${donationToken || "none"}`);
+
+    let mediaPayload = { youtube_url: null, vn_url: null, vn_data: null };
+
+    if (donationToken) {
+      try {
+        const decoded = verifyToken(donationToken);
+        if (decoded && decoded.media_data) {
+          mediaPayload = decoded.media_data;
+          console.log("[DEBUG 3] Decoded Token Media Data:", JSON.stringify(mediaPayload));
+        } else {
+          console.log("Intent [NO_MEDIA] token verified but no media_data present");
+        }
+      } catch (tokenError) {
+        console.error("Token verification failed (non-fatal):", tokenError.message);
+      }
+    }
 
     await DonationHistory.create({
       donor_address: donor,
       streamer_address: streamer,
-      amount: amountString,
+      amount: amountWeiString,
       filtered_message: cleanMessage,
+      media_url: mediaPayload.youtube_url || null,
+      vn_url: mediaPayload.vn_data || mediaPayload.vn_url || null,
     });
 
-    if (profile) {
-      const newCurrent = (profile.milestone_current || 0) + ethAmount;
-      const target = profile.milestone_target || 0;
+    console.log(`Donation [SAVED] | ${donor} -> ${streamer} | ${ethAmount} ETH`);
 
-      if (target > 0 && newCurrent >= target) {
-        profile.milestone_current = 0;
-        console.log(`Milestone reached! Resetting for ${streamer}`);
-      } else {
-        profile.milestone_current = newCurrent;
-      }
+    if (profile) {
+      const newCurrent = parseFloat(profile.milestone_current || 0) + parseFloat(ethAmount);
+      const target = parseFloat(profile.milestone_target || 0);
+
+      profile.milestone_current = newCurrent;
       await profile.save();
+
+      wss.clients.forEach((client) => {
+        if (client.readyState === 1 && client.streamerRoom === streamer.toLowerCase()) {
+          client.send(JSON.stringify({
+            type: "MILESTONE_UPDATE",
+            payload: {
+              milestone_current: newCurrent,
+              milestone_target: target,
+            }
+          }));
+        }
+      });
     }
 
-    const media = getPendingMedia(donor, streamer);
+    const broadcastPayload = {
+      donor,
+      streamer,
+      amount: amountWeiString,
+      message: cleanMessage,
+      profile: profile ? profile.toJSON() : null,
+      youtube_url: mediaPayload.youtube_url || null,
+      vn_url: mediaPayload.vn_url || null,
+      vn_data: mediaPayload.vn_data || null,
+    };
 
-    console.log(`Donation: ${donor} -> ${streamer} | ${ethAmount} ETH${media ? " [+media]" : ""}`);
+    console.log("[DEBUG 4] Broadcasting VERIFIED_DONATION payload:", JSON.stringify({ youtube_url: broadcastPayload.youtube_url, vn_data: broadcastPayload.vn_data ? "[BASE64_PRESENT]" : null }));
 
     wss.clients.forEach((client) => {
       if (client.readyState === 1 && client.streamerRoom === streamer.toLowerCase()) {
         client.send(JSON.stringify({
-          type: "NEW_DONATION",
-          payload: {
-            donor,
-            streamer,
-            amount: amountString,
-            message: cleanMessage,
-            profile: profile ? profile.toJSON() : null,
-            youtube_url: media ? media.youtube_url : null,
-            youtube_start: media ? media.youtube_start : 0
-          }
+          type: "VERIFIED_DONATION",
+          payload: broadcastPayload,
         }));
       }
     });
+
+    console.log(`Donation [BROADCAST] | OBS notified for room=${streamer.toLowerCase()}`);
   } catch (error) {
-    console.error("Event handler error:", error);
+    console.error("Event handler error:", error.message);
   }
 };
 
 /**
- * Initializes the EVM listener using HTTP polling to subscribe to blockchain donation events.
- *
+ * Initializes the EVM listener for on-chain donation events.
  * @param {object} wss The WebSocket server instance.
  * @returns {void}
  */
@@ -93,8 +124,8 @@ const listenToEVM = (wss) => {
 
   const contract = new ethers.Contract(process.env.DONATION_ROUTER_ADDRESS, ROUTER_ABI, provider);
 
-  contract.on("DonationReceived", (donor, streamer, amount, message) => {
-    handleEvent(donor, streamer, amount, message, wss);
+  contract.on("DonationReceived", (donor, streamer, amount, message, donationToken) => {
+    handleEvent(donor, streamer, amount, message, donationToken, wss);
   });
 
   console.log("EVM listener active on", rpcUrl);

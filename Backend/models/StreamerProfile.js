@@ -37,6 +37,11 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       defaultValue: "[]"
     },
+    milestone_name: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+      defaultValue: ""
+    },
     milestone_target: {
       type: DataTypes.FLOAT,
       allowNull: true,
