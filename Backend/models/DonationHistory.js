@@ -17,6 +17,11 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING(42),
       allowNull: true,
     },
+    donor_name: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: "Anonymous",
+    },
     streamer_address: {
       type: DataTypes.STRING(42),
       allowNull: true,
@@ -28,6 +33,11 @@ module.exports = (sequelize, DataTypes) => {
     filtered_message: {
       type: DataTypes.TEXT,
       allowNull: true,
+    },
+    media_type: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      defaultValue: "none",
     },
     media_url: {
       type: DataTypes.TEXT,

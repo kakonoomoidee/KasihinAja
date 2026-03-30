@@ -32,16 +32,20 @@ const handleEvent = async (donor, streamer, amount, message, donationToken, wss)
 
     console.log(`Donation [ON-CHAIN] | ${donor} -> ${streamer} | ${ethAmount} ETH | token=${donationToken || "none"}`);
 
-    let mediaPayload = { youtube_url: null, vn_url: null, vn_data: null };
+    let mediaPayload = { media_type: "none", media_link: null, vn_data: null };
+    let donorName = "Anonymous";
 
     if (donationToken) {
       try {
         const decoded = verifyToken(donationToken);
-        if (decoded && decoded.media_data) {
-          mediaPayload = decoded.media_data;
-          console.log("[DEBUG 3] Decoded Token Media Data:", JSON.stringify(mediaPayload));
-        } else {
-          console.log("Intent [NO_MEDIA] token verified but no media_data present");
+        if (decoded) {
+          donorName = decoded.donor_name || "Anonymous";
+          if (decoded.media_data) {
+            mediaPayload = decoded.media_data;
+            console.log("[DEBUG 3] Decoded Token Media Data:", JSON.stringify(mediaPayload));
+          } else {
+            console.log("Intent [NO_MEDIA] token verified but no media_data present");
+          }
         }
       } catch (tokenError) {
         console.error("Token verification failed (non-fatal):", tokenError.message);
@@ -50,11 +54,13 @@ const handleEvent = async (donor, streamer, amount, message, donationToken, wss)
 
     await DonationHistory.create({
       donor_address: donor,
+      donor_name: donorName,
       streamer_address: streamer,
       amount: amountWeiString,
       filtered_message: cleanMessage,
-      media_url: mediaPayload.youtube_url || null,
-      vn_url: mediaPayload.vn_data || mediaPayload.vn_url || null,
+      media_type: mediaPayload.media_type || "none",
+      media_url: mediaPayload.media_link || null,
+      vn_url: mediaPayload.vn_data || null,
     });
 
     console.log(`Donation [SAVED] | ${donor} -> ${streamer} | ${ethAmount} ETH`);
@@ -81,16 +87,17 @@ const handleEvent = async (donor, streamer, amount, message, donationToken, wss)
 
     const broadcastPayload = {
       donor,
+      donor_name: donorName,
       streamer,
       amount: amountWeiString,
       message: cleanMessage,
       profile: profile ? profile.toJSON() : null,
-      youtube_url: mediaPayload.youtube_url || null,
-      vn_url: mediaPayload.vn_url || null,
+      media_type: mediaPayload.media_type || "none",
+      media_url: mediaPayload.media_link || null,
       vn_data: mediaPayload.vn_data || null,
     };
 
-    console.log("[DEBUG 4] Broadcasting VERIFIED_DONATION payload:", JSON.stringify({ youtube_url: broadcastPayload.youtube_url, vn_data: broadcastPayload.vn_data ? "[BASE64_PRESENT]" : null }));
+    console.log("[DEBUG 4] Broadcasting VERIFIED_DONATION payload:", JSON.stringify({ donor_name: broadcastPayload.donor_name, media_type: broadcastPayload.media_type, media_url: broadcastPayload.media_url, vn_data: broadcastPayload.vn_data ? "[BASE64_PRESENT]" : null }));
 
     wss.clients.forEach((client) => {
       if (client.readyState === 1 && client.streamerRoom === streamer.toLowerCase()) {

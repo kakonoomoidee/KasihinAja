@@ -30,7 +30,10 @@ const getHistory = async (req, res) => {
 
     const history = rows.map((r) => ({
       ...r.toJSON(),
-      youtube_url: r.media_url || null,
+      donor_name: r.donor_name || "Anonymous",
+      media_type: r.media_type || "none",
+      youtube_url: r.media_type === "youtube" ? (r.media_url || null) : null,
+      tiktok_url: r.media_type === "tiktok" ? (r.media_url || null) : null,
       vn_data: r.vn_url || null,
     }));
 
@@ -80,13 +83,16 @@ const replayAlert = async (req, res) => {
             type: "VERIFIED_DONATION",
             payload: {
               donor: historyRecord.donor_address,
+              donor_name: historyRecord.donor_name || "Anonymous",
               streamer: historyRecord.streamer_address,
               amount: historyRecord.amount,
               message: historyRecord.filtered_message,
               profile: profile ? profile.toJSON() : null,
-              youtube_url: historyRecord.media_url || null,
-              vn_url: historyRecord.vn_url || null,
-              vn_data: historyRecord.vn_data || null,
+              media_type: historyRecord.media_type || "none",
+              media_url: historyRecord.media_url || null,
+              youtube_url: historyRecord.media_type === "youtube" ? (historyRecord.media_url || null) : null,
+              tiktok_url: historyRecord.media_type === "tiktok" ? (historyRecord.media_url || null) : null,
+              vn_data: historyRecord.vn_url || null,
             }
           }));
         }
