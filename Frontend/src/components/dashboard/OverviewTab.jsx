@@ -1,5 +1,4 @@
 import React from "react";
-import { ethers } from "ethers";
 
 /**
  * Displays summary stats and the public donation link for the streamer.

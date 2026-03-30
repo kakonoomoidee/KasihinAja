@@ -42,35 +42,28 @@ export default function Dashboard() {
 
   useEffect(() => {
     const saved = localStorage.getItem("kasihinaja_session");
-    if (saved && window.ethereum) {
-      restoreSession(saved);
-    }
-  }, []);
+    if (!saved || !window.ethereum) return;
 
-  /**
-   * Restores a previously authenticated wallet session from localStorage.
-   *
-   * @param {string} savedAddress The wallet address stored in local storage.
-   * @returns {Promise<void>}
-   */
-  const restoreSession = async (savedAddress) => {
-    try {
-      const { ethers } = await import("ethers");
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const accounts = await provider.send("eth_accounts", []);
-      if (accounts.length > 0 && accounts[0].toLowerCase() === savedAddress) {
-        const signer = await provider.getSigner();
-        window.signerInstance = signer;
-        setAddress(savedAddress);
-        setAuthenticated(true);
-        fetchData(savedAddress);
-      } else {
+    (async (savedAddress) => {
+      try {
+        const { ethers } = await import("ethers");
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const accounts = await provider.send("eth_accounts", []);
+        if (accounts.length > 0 && accounts[0].toLowerCase() === savedAddress) {
+          const signer = await provider.getSigner();
+          window.signerInstance = signer;
+          setAddress(savedAddress);
+          setAuthenticated(true);
+          fetchData(savedAddress);
+        } else {
+          localStorage.removeItem("kasihinaja_session");
+        }
+      } catch {
         localStorage.removeItem("kasihinaja_session");
       }
-    } catch {
-      localStorage.removeItem("kasihinaja_session");
-    }
-  };
+    })(saved);
+  }, []);
+
 
   /**
    * Cryptographically establishes user identity.

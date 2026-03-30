@@ -37,6 +37,33 @@ export default function HistoryTab({ history, address, bannedKeys, banKey, handl
   const [selectedDonation, setSelectedDonation] = useState(null);
   const glass = "bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl";
 
+  if (loading) {
+    return (
+      <div className="space-y-5 fade-in">
+        <h2 className="text-2xl font-extrabold text-white tracking-tight">Donation History</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className={`${glass} p-5 space-y-3 animate-pulse`}>
+              <div className="flex justify-between items-start">
+                <div className="space-y-2">
+                  <div className="h-3 w-24 bg-white/10 rounded-lg" />
+                  <div className="h-2.5 w-36 bg-white/10 rounded-lg" />
+                  <div className="h-2 w-20 bg-white/5 rounded-lg" />
+                </div>
+                <div className="h-5 w-20 bg-white/10 rounded-lg" />
+              </div>
+              <div className="h-12 w-full bg-white/5 rounded-xl" />
+              <div className="flex gap-2">
+                <div className="flex-1 h-8 bg-white/5 rounded-lg" />
+                <div className="flex-1 h-8 bg-white/5 rounded-lg" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-5 fade-in">
       <h2 className="text-2xl font-extrabold text-white tracking-tight">Donation History</h2>
