@@ -64,9 +64,10 @@ const VoiceNoteVisualizer = ({ color }) => {
  * @returns {React.ReactElement} The combined alert card element.
  */
 const AlertCard = ({ alert, phase, onMediaEnd }) => {
-  const { profile, message, amount, donor } = alert;
-  const msgColor = profile?.msg_color || "#ffffff";
-  const userColor = profile?.user_color || "#60a5fa";
+  const { profile, message, amount } = alert;
+  const donorName = alert.donor_name || "Anonymous";
+  const msgColor = profile?.msg_color || "#e2e8f0";
+  const userColor = profile?.user_color || "#7dd3fc";
   const template = profile?.alert_template || "classic";
   const ethAmount = amount ? ethers.formatEther(amount) : "0";
   const youtubeId = extractYoutubeId(alert.media_data?.youtube_url || alert.youtube_url || alert.media_url);
@@ -75,15 +76,23 @@ const AlertCard = ({ alert, phase, onMediaEnd }) => {
 
   const animClass = phase === "enter" ? "alert-enter" : phase === "exit" ? "alert-exit" : "";
 
+  const cardStyle = {
+    background: "rgba(15, 23, 42, 0.72)",
+    backdropFilter: "blur(16px)",
+    WebkitBackdropFilter: "blur(16px)",
+    border: "1px solid rgba(255, 255, 255, 0.08)",
+    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05)",
+  };
+
   return (
     <div className={`flex flex-col items-center gap-0 max-w-lg w-full ${animClass}`}>
       {youtubeId && (
         <div
           className="rounded-t-2xl overflow-hidden w-full"
           style={{
-            boxShadow: "0 -4px 20px rgba(0, 0, 0, 0.3)",
-            border: "1px solid rgba(255, 255, 255, 0.1)",
-            borderBottom: "none"
+            border: "1px solid rgba(255, 255, 255, 0.08)",
+            borderBottom: "none",
+            boxShadow: "0 -4px 24px rgba(0, 0, 0, 0.4)",
           }}
         >
           <iframe
@@ -99,26 +108,27 @@ const AlertCard = ({ alert, phase, onMediaEnd }) => {
       )}
 
       <div
-        className="w-full p-4"
+        className="w-full p-5"
         style={{
-          background: "rgba(255, 255, 255, 0.08)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          border: "1px solid rgba(255, 255, 255, 0.12)",
-          borderRadius: youtubeId ? "0 0 16px 16px" : "16px",
+          ...cardStyle,
+          borderRadius: youtubeId ? "0 0 18px 18px" : "18px",
           borderTop: youtubeId ? "none" : undefined,
-          boxShadow: "0 8px 32px rgba(0, 0, 0, 0.25)"
         }}
       >
         {template === "minimalist" ? (
           <div>
             <div className="flex items-center gap-3 mb-1.5">
-              <div className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ backgroundColor: userColor, boxShadow: `0 0 10px ${userColor}` }} />
+              <div
+                className="w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: userColor, boxShadow: `0 0 8px ${userColor}88` }}
+              />
               <span className="text-sm font-bold tracking-wide" style={{ color: userColor }}>
-                {donor.slice(0, 6)}...{donor.slice(-4)} tipped {ethAmount} ETH
+                {donorName}
+                <span className="text-white/50 font-semibold"> tipped </span>
+                <span className="text-white font-extrabold">{ethAmount} ETH</span>
               </span>
             </div>
-            <p className="text-base font-semibold break-words leading-relaxed pl-5" style={{ color: msgColor }}>
+            <p className="text-sm font-medium leading-relaxed pl-5" style={{ color: msgColor }}>
               {message}
             </p>
             {vnSrc && (
@@ -130,20 +140,34 @@ const AlertCard = ({ alert, phase, onMediaEnd }) => {
         ) : (
           <div className="flex items-center gap-4">
             {profile?.avatar_url && (
-              <img src={profile.avatar_url} alt="Avatar" className="w-14 h-14 rounded-xl border-2 shadow-lg object-cover flex-shrink-0" style={{ borderColor: userColor + "60" }} />
+              <img
+                src={profile.avatar_url}
+                alt="Avatar"
+                className="w-12 h-12 rounded-xl object-cover flex-shrink-0"
+                style={{ border: `1.5px solid ${userColor}40`, boxShadow: `0 0 12px ${userColor}30` }}
+              />
             )}
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-base font-extrabold uppercase tracking-wider" style={{ color: userColor }}>
-                New Tip! {ethAmount} ETH
-              </span>
-              <span className="text-xs font-semibold opacity-70 font-mono" style={{ color: userColor }}>
-                From: {donor.slice(0, 6)}...{donor.slice(-4)}
-              </span>
-              <p className="text-base font-bold break-words leading-snug mt-1" style={{ color: msgColor }}>
+            <div className="flex flex-col min-w-0 flex-1 gap-0.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-extrabold tracking-wide text-white leading-tight">
+                  {donorName}
+                </span>
+                <span
+                  className="text-xs font-bold px-2 py-0.5 rounded-md"
+                  style={{
+                    color: userColor,
+                    background: `${userColor}18`,
+                    border: `1px solid ${userColor}30`,
+                  }}
+                >
+                  {ethAmount} ETH
+                </span>
+              </div>
+              <p className="text-sm font-medium leading-snug" style={{ color: msgColor }}>
                 {message}
               </p>
               {vnSrc && (
-                <div className="mt-2">
+                <div className="mt-1.5">
                   <VoiceNoteVisualizer color={userColor} />
                 </div>
               )}

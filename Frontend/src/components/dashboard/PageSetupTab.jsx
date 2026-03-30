@@ -26,14 +26,14 @@ export default function PageSetupTab({
   loading, handleSaveProfile,
   glassInput, btnPrimary,
 }) {
-  const glass = "bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl";
+  const glass = "bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl";
 
   return (
     <div className="space-y-6 fade-in">
       <h2 className="text-2xl font-extrabold text-white tracking-tight">Page Setup</h2>
       <form onSubmit={handleSaveProfile} className="space-y-5">
         <div className={`${glass} p-6`}>
-          <label className="block text-xs font-bold text-blue-300 mb-3 uppercase tracking-wider">Avatar</label>
+          <label className="block text-xs font-bold text-white/50 mb-3 uppercase tracking-wider">Avatar</label>
           <div className="flex items-center gap-5">
             {avatarUrl ? (
               <img src={avatarUrl} alt="Avatar" className="w-20 h-20 rounded-2xl border-2 border-white/30 object-cover shadow-lg" />
@@ -46,18 +46,18 @@ export default function PageSetupTab({
           </div>
         </div>
         <div className={`${glass} p-6`}>
-          <label className="block text-xs font-bold text-blue-300 mb-3 uppercase tracking-wider">Display Name</label>
+          <label className="block text-xs font-bold text-white/50 mb-3 uppercase tracking-wider">Display Name</label>
           <input type="text" value={displayName} onChange={(e) => setDisplayName(e.target.value)} className={`w-full ${glassInput}`} placeholder="My Stream Name" />
         </div>
         <div className={`${glass} p-6`}>
-          <label className="block text-xs font-bold text-blue-300 mb-4 uppercase tracking-wider">Donor Features</label>
+          <label className="block text-xs font-bold text-white/50 mb-4 uppercase tracking-wider">Donor Features</label>
           <div className="flex flex-col gap-3">
             <label className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" checked={enableMediaShare} onChange={(e) => setEnableMediaShare(e.target.checked)} className="w-5 h-5 rounded accent-blue-400 cursor-pointer" />
+              <input type="checkbox" checked={enableMediaShare} onChange={(e) => setEnableMediaShare(e.target.checked)} className="w-5 h-5 rounded accent-white cursor-pointer" />
               <span className="font-semibold text-white/80">Enable Media Share (YouTube / TikTok)</span>
             </label>
             <label className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" checked={enableVn} onChange={(e) => setEnableVn(e.target.checked)} className="w-5 h-5 rounded accent-blue-400 cursor-pointer" />
+              <input type="checkbox" checked={enableVn} onChange={(e) => setEnableVn(e.target.checked)} className="w-5 h-5 rounded accent-white cursor-pointer" />
               <span className="font-semibold text-white/80">Enable Voice Note</span>
             </label>
           </div>

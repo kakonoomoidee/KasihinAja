@@ -14,18 +14,18 @@ import React from "react";
  * @returns {React.ReactElement} The moderation tab element.
  */
 export default function ModerationTab({ blacklistText, setBlacklistText, bannedKeys, unbanKey, loading, handleSaveProfile, glassInput }) {
-  const glass = "bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl";
+  const glass = "bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl";
 
   return (
     <div className="space-y-6 fade-in">
       <h2 className="text-2xl font-extrabold text-white tracking-tight">Moderation</h2>
       <form onSubmit={handleSaveProfile} className="space-y-5">
         <div className={`${glass} p-6`}>
-          <label className="block text-xs font-bold text-rose-300 mb-3 uppercase tracking-wider">Custom Banned Words</label>
+          <label className="block text-xs font-bold text-white/50 mb-3 uppercase tracking-wider">Custom Banned Words</label>
           <textarea value={blacklistText} onChange={(e) => setBlacklistText(e.target.value)} className={`w-full ${glassInput} min-h-[120px] font-mono text-sm leading-relaxed resize-none`} placeholder="spam, profanity, political" />
         </div>
         <div className={`${glass} p-6`}>
-          <label className="block text-xs font-bold text-orange-300 mb-3 uppercase tracking-wider">Banned Public Keys</label>
+          <label className="block text-xs font-bold text-white/50 mb-3 uppercase tracking-wider">Banned Public Keys</label>
           {bannedKeys.length === 0 ? (
             <p className="text-sm text-white/30 font-medium">No banned addresses. Use the History tab to ban donors.</p>
           ) : (
@@ -33,13 +33,13 @@ export default function ModerationTab({ blacklistText, setBlacklistText, bannedK
               {bannedKeys.map((key) => (
                 <div key={key} className="flex items-center justify-between bg-white/5 border border-white/10 rounded-xl p-3">
                   <span className="font-mono text-sm font-bold text-white/70 truncate max-w-[300px]" title={key}>{key.slice(0, 10)}...{key.slice(-8)}</span>
-                  <button type="button" onClick={() => unbanKey(key)} className="text-xs font-bold text-emerald-400 bg-emerald-500/15 hover:bg-emerald-500/30 border border-emerald-400/30 px-3 py-1.5 rounded-lg transition-colors cursor-pointer">Unban</button>
+                  <button type="button" onClick={() => unbanKey(key)} className="text-xs font-bold text-white/70 bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-colors cursor-pointer">Unban</button>
                 </div>
               ))}
             </div>
           )}
         </div>
-        <button disabled={loading} type="submit" className="bg-rose-500/70 hover:bg-rose-400 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-xl border border-white/20 transition-all cursor-pointer disabled:opacity-40">{loading ? "Saving..." : "Apply Rules"}</button>
+        <button disabled={loading} type="submit" className="bg-white/5 hover:bg-white/10 text-white/80 hover:text-white font-bold py-3 px-6 rounded-xl border border-white/10 transition-all cursor-pointer disabled:opacity-40">{loading ? "Saving..." : "Apply Rules"}</button>
       </form>
     </div>
   );

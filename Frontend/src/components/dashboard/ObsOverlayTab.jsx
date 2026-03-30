@@ -37,7 +37,7 @@ export default function ObsOverlayTab({
   loading, handleSaveProfile, triggerTestAlert, copyToClipboard,
   glassInput, btnPrimary, btnGhost,
 }) {
-  const glass = "bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl";
+  const glass = "bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl";
   const secretKey = btoa(address);
   const alertUrl = window.location.origin + "/overlay/alert/" + secretKey;
   const milestoneUrl = window.location.origin + "/overlay/milestone/" + secretKey;
@@ -82,7 +82,7 @@ export default function ObsOverlayTab({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className={`${glass} p-6`}>
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-xs font-bold text-rose-300 uppercase tracking-wider">Alert URL</h3>
+            <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider">Alert URL</h3>
             <button type="button" onClick={() => setShowAlertUrl(!showAlertUrl)} className="text-xs font-bold text-white/50 hover:text-white bg-white/10 px-3 py-1 rounded-lg transition-colors cursor-pointer">{showAlertUrl ? "Hide" : "Reveal"}</button>
           </div>
           <div className="flex items-center gap-2">
@@ -92,7 +92,7 @@ export default function ObsOverlayTab({
         </div>
         <div className={`${glass} p-6`}>
           <div className="flex justify-between items-center mb-3">
-            <h3 className="text-xs font-bold text-emerald-300 uppercase tracking-wider">Milestone URL</h3>
+            <h3 className="text-xs font-bold text-white/50 uppercase tracking-wider">Milestone URL</h3>
             <button type="button" onClick={() => setShowMilestoneUrl(!showMilestoneUrl)} className="text-xs font-bold text-white/50 hover:text-white bg-white/10 px-3 py-1 rounded-lg transition-colors cursor-pointer">{showMilestoneUrl ? "Hide" : "Reveal"}</button>
           </div>
           <div className="flex items-center gap-2">
@@ -104,24 +104,24 @@ export default function ObsOverlayTab({
 
       <form onSubmit={handleSaveProfile} className="space-y-5">
         <div className={`${glass} p-6`}>
-          <label className="block text-xs font-bold text-blue-300 mb-3 uppercase tracking-wider">Alert Template</label>
+          <label className="block text-xs font-bold text-white/50 mb-3 uppercase tracking-wider">Alert Template</label>
           <div className="grid grid-cols-2 gap-3">
-            <button type="button" onClick={() => setAlertTemplate("classic")} className={`py-3 px-4 rounded-xl font-bold text-sm transition-all cursor-pointer border ${alertTemplate === "classic" ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10"}`}>Classic</button>
-            <button type="button" onClick={() => setAlertTemplate("minimalist")} className={`py-3 px-4 rounded-xl font-bold text-sm transition-all cursor-pointer border ${alertTemplate === "minimalist" ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10"}`}>Minimalist</button>
+            <button type="button" onClick={() => setAlertTemplate("classic")} className={`py-3 px-4 rounded-xl font-bold text-sm transition-all cursor-pointer border ${alertTemplate === "classic" ? "bg-white/10 border-white/20 text-white" : "bg-white/[0.03] border-white/10 text-white/40 hover:bg-white/[0.06] hover:text-white/70"}`}>Classic</button>
+            <button type="button" onClick={() => setAlertTemplate("minimalist")} className={`py-3 px-4 rounded-xl font-bold text-sm transition-all cursor-pointer border ${alertTemplate === "minimalist" ? "bg-white/10 border-white/20 text-white" : "bg-white/[0.03] border-white/10 text-white/40 hover:bg-white/[0.06] hover:text-white/70"}`}>Minimalist</button>
           </div>
         </div>
         <div className={`${glass} p-6`}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div>
-              <label className="block text-xs font-bold text-blue-300 mb-3 uppercase tracking-wider">Message Color</label>
+              <label className="block text-xs font-bold text-white/50 mb-3 uppercase tracking-wider">Message Color</label>
               <div className="flex gap-2 bg-white/5 border border-white/10 rounded-xl p-1"><input type="color" value={msgColor} onChange={(e) => setMsgColor(e.target.value)} className="h-10 w-10 cursor-pointer p-0 border-0 rounded-lg" /><input type="text" value={msgColor} onChange={(e) => setMsgColor(e.target.value)} className="flex-1 bg-transparent px-2 font-mono font-semibold text-white outline-none uppercase text-sm" /></div>
             </div>
             <div>
-              <label className="block text-xs font-bold text-blue-300 mb-3 uppercase tracking-wider">Username Color</label>
+              <label className="block text-xs font-bold text-white/50 mb-3 uppercase tracking-wider">Username Color</label>
               <div className="flex gap-2 bg-white/5 border border-white/10 rounded-xl p-1"><input type="color" value={userColor} onChange={(e) => setUserColor(e.target.value)} className="h-10 w-10 cursor-pointer p-0 border-0 rounded-lg" /><input type="text" value={userColor} onChange={(e) => setUserColor(e.target.value)} className="flex-1 bg-transparent px-2 font-mono font-semibold text-white outline-none uppercase text-sm" /></div>
             </div>
             <div>
-              <label className="block text-xs font-bold text-blue-300 mb-3 uppercase tracking-wider">Background Color</label>
+              <label className="block text-xs font-bold text-white/50 mb-3 uppercase tracking-wider">Background Color</label>
               <div className="flex gap-2 bg-white/5 border border-white/10 rounded-xl p-1"><input type="color" value={bgColor} onChange={(e) => setBgColor(e.target.value)} className="h-10 w-10 cursor-pointer p-0 border-0 rounded-lg" /><input type="text" value={bgColor} onChange={(e) => setBgColor(e.target.value)} className="flex-1 bg-transparent px-2 font-mono font-semibold text-white outline-none uppercase text-sm" /></div>
             </div>
           </div>

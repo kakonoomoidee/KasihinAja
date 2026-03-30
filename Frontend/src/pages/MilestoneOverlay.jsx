@@ -100,7 +100,8 @@ export default function MilestoneOverlay() {
     };
   }, [streamerAddress]);
 
-  const percentage = milestoneTarget > 0 ? Math.min(100, (milestoneCurrent / milestoneTarget) * 100) : 0;
+  const rawPct = milestoneTarget > 0 ? (milestoneCurrent / milestoneTarget) * 100 : 0;
+  const barPct = Math.min(100, rawPct);
   const isCompleted = milestoneTarget > 0 && milestoneCurrent >= milestoneTarget;
 
   if (milestoneTarget <= 0) {
@@ -130,28 +131,28 @@ export default function MilestoneOverlay() {
             </div>
           </div>
 
-          <div className="w-full rounded-full h-6 overflow-hidden relative bg-black/60 border border-white/10 shadow-inner">
+          <div className="w-full rounded-full h-6 overflow-hidden relative bg-black/50 border border-white/10">
             <div
-              className={`h-full rounded-full transition-all duration-1000 ease-out flex items-center justify-end px-3 ${isCompleted ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' : 'bg-gradient-to-r from-gray-300 to-white'}`}
+              className="h-full rounded-full transition-all duration-1000 ease-out flex items-center justify-end px-3"
               style={{
-                width: `${Math.max(5, percentage)}%`,
-                boxShadow: isCompleted ? "0 0 15px rgba(52, 211, 153, 0.5)" : "0 0 15px rgba(255,255,255,0.3)"
+                width: `${Math.max(5, barPct)}%`,
+                background: isCompleted ? "#f59e0b" : "#0ea5e9",
+                boxShadow: isCompleted ? "0 0 16px rgba(245,158,11,0.5)" : "0 0 16px rgba(14,165,233,0.4)"
               }}
             >
-              <div className="absolute top-0 left-0 w-full h-1/2 bg-white/20 rounded-t-full" />
-              {percentage >= 15 && (
-                 <span className={`text-xs font-bold leading-none z-10 ${isCompleted ? 'text-white drop-shadow-sm' : 'text-black'}`}>
-                    {percentage.toFixed(0)}%
-                 </span>
+              {rawPct >= 15 && (
+                <span className="text-xs font-bold leading-none z-10 text-white drop-shadow-sm">
+                  {rawPct.toFixed(0)}%
+                </span>
               )}
             </div>
           </div>
           
           {isCompleted && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none mt-1">
-               <span className="text-4xl font-black text-white px-6 py-2 rounded-2xl animate-bounce bg-emerald-600/90 backdrop-blur-md shadow-lg">
-                 GOAL REACHED
-               </span>
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+              <span className="text-3xl font-black text-white px-6 py-2 rounded-2xl bg-amber-500/90 backdrop-blur-md shadow-lg">
+                GOAL SURPASSED
+              </span>
             </div>
           )}
         </div>

@@ -277,10 +277,10 @@ export default function Dashboard() {
     window.signerInstance = null;
   };
 
-  const glass = "bg-white/10 backdrop-blur-xl border border-white/20 rounded-2xl";
-  const glassInput = "bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-3 outline-none text-white placeholder-white/40 font-medium";
-  const btnPrimary = "bg-blue-500/80 hover:bg-blue-400 backdrop-blur-sm text-white font-bold py-3 px-6 rounded-xl border border-white/20 transition-all cursor-pointer disabled:opacity-40";
-  const btnGhost = "bg-white/10 hover:bg-white/20 backdrop-blur-sm text-white font-bold py-3 px-5 rounded-xl border border-white/20 transition-all cursor-pointer";
+  const glass = "bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-lg";
+  const glassInput = "bg-white/[0.03] backdrop-blur-sm border border-white/[0.08] rounded-xl p-3 outline-none text-white placeholder-white/25 font-medium";
+  const btnPrimary = "bg-white/90 hover:bg-white text-slate-900 font-bold py-3 px-6 rounded-xl transition-all cursor-pointer disabled:opacity-40";
+  const btnGhost = "bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white font-bold py-3 px-5 rounded-xl border border-white/[0.08] transition-all cursor-pointer";
 
   const sharedProps = {
     address, stats, history, loading,
@@ -307,7 +307,7 @@ export default function Dashboard() {
           <button onClick={handleLogin} disabled={loading} className={`w-full ${btnPrimary} py-4 text-sm tracking-wide`}>
             {loading ? "Signing..." : "Connect MetaMask"}
           </button>
-          {status && <p className="mt-6 text-white/90 text-sm font-semibold bg-red-500/20 backdrop-blur-sm py-3 rounded-xl border border-red-400/30">{status}</p>}
+          {status && <p className="mt-6 text-white/70 text-sm font-semibold bg-white/5 backdrop-blur-sm py-3 rounded-xl border border-white/10">{status}</p>}
         </div>
       </div>
     );
@@ -346,14 +346,14 @@ export default function Dashboard() {
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex text-left items-center px-4 py-3 rounded-xl font-semibold text-sm transition-all cursor-pointer ${activeTab === item.id ? "bg-blue-500/30 text-white border border-blue-400/30 shadow-lg shadow-blue-500/10" : "text-white/50 hover:text-white hover:bg-white/5 border border-transparent"}`}
+              className={`w-full flex text-left items-center px-4 py-3 rounded-xl font-semibold text-sm transition-all cursor-pointer ${activeTab === item.id ? "bg-white/10 text-white border border-white/20" : "text-white/40 hover:text-white/70 hover:bg-white/[0.04] border border-transparent"}`}
             >
               {item.label}
             </button>
           ))}
         </nav>
         <div className="p-4 border-t border-white/10">
-          <button onClick={logout} className="w-full bg-red-500/20 hover:bg-red-500/40 text-red-300 font-bold py-3 rounded-xl border border-red-400/20 transition-all text-sm cursor-pointer">Disconnect</button>
+          <button onClick={logout} className="w-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white font-bold py-3 rounded-xl border border-white/10 transition-all text-sm cursor-pointer">Disconnect</button>
         </div>
       </aside>
       <main className="flex-1 overflow-y-auto relative">

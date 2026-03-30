@@ -5,13 +5,8 @@
   body {
     font-family: "Inter", sans-serif;
     min-height: 100vh;
-    background: #091520;
-    background-image:
-      radial-gradient(ellipse at 15% 5%, rgba(0, 200, 180, 0.25) 0%, transparent 50%),
-      radial-gradient(ellipse at 60% 15%, rgba(0, 140, 160, 0.15) 0%, transparent 45%),
-      radial-gradient(ellipse at 85% 50%, rgba(0, 100, 140, 0.12) 0%, transparent 40%),
-      radial-gradient(ellipse at 30% 80%, rgba(0, 160, 170, 0.08) 0%, transparent 45%),
-      linear-gradient(160deg, #0a1628 0%, #0d1f35 35%, #0b1a2e 65%, #091520 100%);
+    background-color: #0f172a;
+    background-image: radial-gradient(circle at 15% 0%, rgba(14, 165, 233, 0.05) 0%, transparent 40%);
     background-attachment: fixed;
   }
 }
