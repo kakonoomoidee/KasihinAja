@@ -2,9 +2,9 @@ const { signToken } = require("../utils/token");
 const { StreamerProfile } = require("../models");
 
 /**
- * Creates a new donation intent as a stateless signed token with computed media duration.
+ * Creates a new donation intent as a stateless signed token with computed media duration capped at 30 minutes.
  *
- * @param {object} req Express request with body: donor_address, streamer_address, amount, donorName, isAnonymous, selectedMedia, mediaLink, media_data.
+ * @param {object} req Express request with body: donor_address, streamer_address, amount, donorName, isAnonymous, selectedMedia, mediaLink, youtube_start, media_data.
  * @param {object} res Express response.
  * @returns {Promise<void>}
  */
@@ -18,6 +18,7 @@ const createIntent = async (req, res) => {
       isAnonymous,
       selectedMedia,
       mediaLink,
+      youtube_start,
       media_data,
     } = req.body;
 
@@ -46,7 +47,8 @@ const createIntent = async (req, res) => {
       duration = 30;
     } else if (selectedMedia === "youtube" || selectedMedia === "tiktok") {
       if (pricePerSec > 0) {
-        duration = Math.floor(amountFloat / pricePerSec);
+        const rawDuration = Math.floor(amountFloat / pricePerSec);
+        duration = Math.min(1800, rawDuration);
       }
       if (!duration || duration < 1) {
         return res.status(400).json({
@@ -67,6 +69,7 @@ const createIntent = async (req, res) => {
     if (duration !== null) {
       resolvedMedia.duration = duration;
     }
+    resolvedMedia.youtube_start = parseInt(youtube_start) || 0;
 
     const payload = {
       donor_address: donor_address.toLowerCase(),

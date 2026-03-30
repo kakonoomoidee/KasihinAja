@@ -95,6 +95,17 @@ const handleEvent = async (donor, streamer, amount, message, donationToken, wss)
       media_type: mediaPayload.media_type || "none",
       media_url: mediaPayload.media_link || null,
       vn_data: mediaPayload.vn_data || null,
+      duration: mediaPayload.duration || null,
+      youtube_start: mediaPayload.youtube_start || 0,
+      media_data: {
+        media_type: mediaPayload.media_type || "none",
+        media_link: mediaPayload.media_link || null,
+        youtube_url: mediaPayload.media_link || null,
+        youtube_start: mediaPayload.youtube_start || 0,
+        duration: mediaPayload.duration || null,
+        vn_data: mediaPayload.vn_data || null,
+        vn_url: mediaPayload.vn_url || null,
+      },
     };
 
     console.log("[DEBUG 4] Broadcasting VERIFIED_DONATION payload:", JSON.stringify({ donor_name: broadcastPayload.donor_name, media_type: broadcastPayload.media_type, media_url: broadcastPayload.media_url, vn_data: broadcastPayload.vn_data ? "[BASE64_PRESENT]" : null }));

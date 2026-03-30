@@ -256,8 +256,8 @@ export default function AlertOverlay() {
         return;
       }
 
-      const duration = next.media_data?.duration;
-      const displayTime = duration ? duration * 1000 : (hasYoutube ? 15000 : 5000);
+      const durationSec = next.media_data?.duration || next.duration || null;
+      const displayTime = durationSec ? durationSec * 1000 : (hasYoutube ? 15000 : 5000);
       dismissTimerRef.current = setTimeout(triggerDismiss, displayTime);
     };
   });

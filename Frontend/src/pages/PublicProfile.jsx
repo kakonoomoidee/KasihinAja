@@ -212,9 +212,7 @@ export default function PublicProfile() {
   const glass = "bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-lg";
   const glassInput = "bg-white/[0.03] backdrop-blur-sm border border-white/[0.08] rounded-xl p-3 outline-none text-white placeholder-white/25 font-medium w-full transition-all";
 
-  const amountNum = parseFloat(amount) || 0;
   const pricePerSec = parseFloat(profile.media_price_per_second) || 0;
-  const allowedSeconds = pricePerSec > 0 && amountNum > 0 ? Math.floor(amountNum / pricePerSec) : null;
 
   const mediaEnabled = profile.enable_media_share || profile.enable_vn;
   const availableMediaOptions = MEDIA_OPTIONS.filter((opt) => {
@@ -320,8 +318,28 @@ export default function PublicProfile() {
             {!amountError && parseFloat(amount) > 0 && parseFloat(amount) < 0.0005 && (
               <p className="text-xs text-red-400 font-bold mt-1.5">Minimum tip is 0.0005 ETH</p>
             )}
-            {!amountError && allowedSeconds !== null && (
-              <p className="text-xs text-emerald-400 font-bold mt-1.5">Your tip allows for ~{allowedSeconds}s of media</p>
+            {!amountError && (selectedMedia === "youtube" || selectedMedia === "tiktok") && pricePerSec > 0 && (
+              <div className="mt-3 bg-white/[0.03] border border-white/10 rounded-xl p-4 space-y-3">
+                <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Media Info</p>
+                <div className="grid grid-cols-2 gap-3 text-xs font-semibold">
+                  <div>
+                    <p className="text-white/30 mb-0.5">Rate</p>
+                    <p className="text-white/70">{pricePerSec} ETH/sec</p>
+                  </div>
+                  <div>
+                    <p className="text-white/30 mb-0.5">Max Duration</p>
+                    <p className="text-white/70">30 min (1800s)</p>
+                  </div>
+                </div>
+                {parseFloat(amount) > 0 && (
+                  <div className="bg-white/[0.06] rounded-lg px-3 py-2 flex items-center justify-between">
+                    <span className="text-xs text-white/50 font-medium">Estimated Duration</span>
+                    <span className="text-xs font-extrabold text-white">
+                      {Math.min(1800, Math.floor(parseFloat(amount) / pricePerSec))}s
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
           </div>
 
