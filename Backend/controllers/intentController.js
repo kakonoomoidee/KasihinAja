@@ -1,7 +1,8 @@
 const { signToken } = require("../utils/token");
+const { StreamerProfile } = require("../models");
 
 /**
- * Creates a new donation intent as a stateless signed token.
+ * Creates a new donation intent as a stateless signed token with computed media duration.
  *
  * @param {object} req Express request with body: donor_address, streamer_address, amount, donorName, isAnonymous, selectedMedia, mediaLink, media_data.
  * @param {object} res Express response.
@@ -24,19 +25,47 @@ const createIntent = async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    if (parseFloat(amount) < 0.0005) {
+    const amountFloat = parseFloat(amount);
+
+    if (amountFloat < 0.0005) {
       return res.status(400).json({ error: "Minimum tip is 0.0005 ETH" });
     }
 
-    const finalName = isAnonymous ? "Anonymous" : (donorName || "Anonymous");
+    const profile = await StreamerProfile.findByPk(streamer_address.toLowerCase());
+    const pricePerSec = profile?.media_price_per_second ?? 0.0005;
+    const vnFixedPrice = profile?.vn_fixed_price ?? 0.01;
 
-    const resolvedMedia = media_data || {};
+    let duration = null;
+
+    if (selectedMedia === "vn") {
+      if (amountFloat < vnFixedPrice) {
+        return res.status(400).json({
+          error: `Voice Note requires a minimum tip of ${vnFixedPrice} ETH`,
+        });
+      }
+      duration = 30;
+    } else if (selectedMedia === "youtube" || selectedMedia === "tiktok") {
+      if (pricePerSec > 0) {
+        duration = Math.floor(amountFloat / pricePerSec);
+      }
+      if (!duration || duration < 1) {
+        return res.status(400).json({
+          error: `Minimum amount for media is ${pricePerSec} ETH (1 second)`,
+        });
+      }
+    }
+
+    const finalName = isAnonymous ? "Anonymous" : (donorName || "Anonymous");
+    const resolvedMedia = media_data ? { ...media_data } : {};
 
     if (selectedMedia && selectedMedia !== "none") {
       resolvedMedia.media_type = selectedMedia;
     }
     if (mediaLink) {
       resolvedMedia.media_link = mediaLink;
+    }
+    if (duration !== null) {
+      resolvedMedia.duration = duration;
     }
 
     const payload = {
@@ -48,9 +77,6 @@ const createIntent = async (req, res) => {
     };
 
     const token = signToken(payload);
-
-    console.log("[DEBUG 2] Data encoded into Token:", JSON.stringify({ donor_name: payload.donor_name, media_data: payload.media_data }));
-
     res.json({ token });
   } catch (error) {
     console.error("Intent creation error:", error);
@@ -59,5 +85,3 @@ const createIntent = async (req, res) => {
 };
 
 module.exports = { createIntent };
-
-

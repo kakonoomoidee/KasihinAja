@@ -72,6 +72,16 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       defaultValue: "[]"
     },
+    media_price_per_second: {
+      type: DataTypes.FLOAT,
+      allowNull: true,
+      defaultValue: 0.0005,
+    },
+    vn_fixed_price: {
+      type: DataTypes.FLOAT,
+      allowNull: true,
+      defaultValue: 0.01,
+    },
   }, {
     tableName: "streamer_profiles",
     timestamps: false,

@@ -98,7 +98,7 @@ const AlertCard = ({ alert, phase, onMediaEnd }) => {
           <iframe
             width="100%"
             height="225"
-            src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&start=${youtubeStart}`}
+            src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&loop=1&playlist=${youtubeId}&start=${youtubeStart}`}
             allow="autoplay; encrypted-media"
             allowFullScreen
             title="Media Share"
@@ -256,7 +256,8 @@ export default function AlertOverlay() {
         return;
       }
 
-      const displayTime = hasYoutube ? 15000 : 5000;
+      const duration = next.media_data?.duration;
+      const displayTime = duration ? duration * 1000 : (hasYoutube ? 15000 : 5000);
       dismissTimerRef.current = setTimeout(triggerDismiss, displayTime);
     };
   });

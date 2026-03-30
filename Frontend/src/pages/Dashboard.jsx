@@ -30,6 +30,8 @@ export default function Dashboard() {
   const [alertTemplate, setAlertTemplate] = useState("classic");
   const [enableMediaShare, setEnableMediaShare] = useState(false);
   const [enableVn, setEnableVn] = useState(false);
+  const [mediaPricePerSecond, setMediaPricePerSecond] = useState(0.0005);
+  const [vnFixedPrice, setVnFixedPrice] = useState(0.01);
   const [bannedKeys, setBannedKeys] = useState([]);
   const [showAlertUrl, setShowAlertUrl] = useState(false);
   const [showMilestoneUrl, setShowMilestoneUrl] = useState(false);
@@ -111,6 +113,8 @@ export default function Dashboard() {
         setAlertTemplate(res.data.alert_template || "classic");
         setEnableMediaShare(!!res.data.enable_media_share);
         setEnableVn(!!res.data.enable_vn);
+        setMediaPricePerSecond(res.data.media_price_per_second ?? 0.0005);
+        setVnFixedPrice(res.data.vn_fixed_price ?? 0.01);
         let bl = [];
         try { bl = JSON.parse(res.data.custom_blacklist || "[]"); } catch { bl = []; }
         setBlacklistText(bl.join(", "));
@@ -151,6 +155,8 @@ export default function Dashboard() {
         enable_media_share: enableMediaShare,
         enable_vn: enableVn,
         banned_keys: bannedKeys,
+        media_price_per_second: parseFloat(mediaPricePerSecond),
+        vn_fixed_price: parseFloat(vnFixedPrice),
       };
       const signature = await signPayload(window.signerInstance, payload);
       await axios.post(`${API_URL}/profile/${address}`, { signature, payload });
@@ -291,6 +297,7 @@ export default function Dashboard() {
     milestoneName, setMilestoneName, milestoneTarget, setMilestoneTarget,
     alertTemplate, setAlertTemplate,
     enableMediaShare, setEnableMediaShare, enableVn, setEnableVn,
+    mediaPricePerSecond, setMediaPricePerSecond, vnFixedPrice, setVnFixedPrice,
     blacklistText, setBlacklistText, bannedKeys,
     showAlertUrl, setShowAlertUrl, showMilestoneUrl, setShowMilestoneUrl,
     showPreview, setShowPreview,

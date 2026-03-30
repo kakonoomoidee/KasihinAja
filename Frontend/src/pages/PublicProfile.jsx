@@ -37,6 +37,7 @@ export default function PublicProfile() {
   const [status, setStatus] = useState("");
   const recorderRef = useRef(null);
   const chunksRef = useRef([]);
+  const vnAutoStopRef = useRef(null);
 
   useEffect(() => {
     /**
@@ -74,6 +75,12 @@ export default function PublicProfile() {
       recorderRef.current = recorder;
       recorder.start();
       setIsRecording(true);
+      vnAutoStopRef.current = setTimeout(() => {
+        if (recorderRef.current && recorderRef.current.state === "recording") {
+          recorderRef.current.stop();
+          setIsRecording(false);
+        }
+      }, 30000);
     } catch {
       setStatus("Microphone access denied.");
       setTimeout(() => setStatus(""), 3000);
@@ -81,11 +88,15 @@ export default function PublicProfile() {
   };
 
   /**
-   * Stops the active audio recording.
+   * Stops the active audio recording and clears the 30-second auto-stop timer.
    *
    * @returns {void}
    */
   const stopRecording = () => {
+    if (vnAutoStopRef.current) {
+      clearTimeout(vnAutoStopRef.current);
+      vnAutoStopRef.current = null;
+    }
     if (recorderRef.current && recorderRef.current.state === "recording") {
       recorderRef.current.stop();
       setIsRecording(false);

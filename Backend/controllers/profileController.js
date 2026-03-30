@@ -52,7 +52,7 @@ const updateProfile = async (req, res) => {
       return;
     }
 
-    const { display_name, avatar_url, msg_color, user_color, bg_color, custom_blacklist, milestone_name, milestone_target, enable_media_share, enable_vn, alert_template, banned_keys } = payload;
+    const { display_name, avatar_url, msg_color, user_color, bg_color, custom_blacklist, milestone_name, milestone_target, enable_media_share, enable_vn, alert_template, banned_keys, media_price_per_second, vn_fixed_price } = payload;
 
     const [profile, created] = await StreamerProfile.findOrCreate({
       where: { wallet_address: address },
@@ -68,7 +68,9 @@ const updateProfile = async (req, res) => {
         enable_media_share: enable_media_share || false,
         enable_vn: enable_vn || false,
         alert_template: alert_template || "classic",
-        banned_keys: banned_keys ? JSON.stringify(banned_keys) : "[]"
+        banned_keys: banned_keys ? JSON.stringify(banned_keys) : "[]",
+        media_price_per_second: media_price_per_second ?? 0.0005,
+        vn_fixed_price: vn_fixed_price ?? 0.01,
       }
     });
 
@@ -85,6 +87,8 @@ const updateProfile = async (req, res) => {
       if (enable_vn !== undefined) profile.enable_vn = enable_vn;
       if (alert_template !== undefined) profile.alert_template = alert_template;
       if (banned_keys !== undefined) profile.banned_keys = JSON.stringify(banned_keys);
+      if (media_price_per_second !== undefined) profile.media_price_per_second = media_price_per_second;
+      if (vn_fixed_price !== undefined) profile.vn_fixed_price = vn_fixed_price;
       await profile.save();
     }
 
