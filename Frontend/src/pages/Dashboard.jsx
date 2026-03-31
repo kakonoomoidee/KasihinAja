@@ -3,12 +3,19 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { signPayload } from "../utils/web3";
 import { API_URL } from "../utils/config";
+
+// UI Components
+import Sidebar from "../components/dashboard/ui/Sidebar";
+
+// Tabs
 import OverviewTab from "../components/dashboard/OverviewTab";
 import PageSetupTab from "../components/dashboard/PageSetupTab";
 import ObsOverlayTab from "../components/dashboard/ObsOverlayTab";
 import MilestonesTab from "../components/dashboard/MilestonesTab";
 import HistoryTab from "../components/dashboard/HistoryTab";
 import ModerationTab from "../components/dashboard/ModerationTab";
+import LeaderboardTab from "../components/dashboard/LeaderboardTab";
+import SubathonTab from "../components/dashboard/SubathonTab";
 
 /**
  * Streamer dashboard layout wrapper and shared state manager.
@@ -43,6 +50,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
 
+  // 1. Initial Load & Auth Check
   useEffect(() => {
     const savedAddress = localStorage.getItem("kasihinaja_session");
     if (!savedAddress || !window.ethereum) {
@@ -72,6 +80,13 @@ export default function Dashboard() {
       }
     })();
   }, [navigate]);
+
+  // 2. TRIGGER BARU: Fetch fresh data from DB every time user switches tabs!
+  useEffect(() => {
+    if (address) {
+      fetchData(address);
+    }
+  }, [activeTab, address]);
 
   /**
    * Refreshes all metrics and profile details.
@@ -266,12 +281,10 @@ export default function Dashboard() {
   if (!address) return null;
 
   const glassInput = "bg-white/[0.03] backdrop-blur-sm border border-white/[0.08] rounded-xl p-3 outline-none text-white placeholder-white/25 font-medium";
-  const btnPrimary = "bg-white/90 hover:bg-white text-slate-900 font-bold py-3 px-6 rounded-xl transition-all cursor-pointer disabled:opacity-40";
-  const btnGhost = "bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white font-bold py-3 px-5 rounded-xl border border-white/[0.08] transition-all cursor-pointer";
 
   const sharedProps = {
     address, stats, history, loading,
-    glassInput, btnPrimary, btnGhost,
+    glassInput,
     handleSaveProfile, copyToClipboard,
     avatarUrl, setAvatarUrl, displayName, setDisplayName,
     msgColor, setMsgColor, userColor, setUserColor, bgColor, setBgColor,
@@ -294,48 +307,28 @@ export default function Dashboard() {
       case "milestones":   return <MilestonesTab {...sharedProps} />;
       case "history":      return <HistoryTab {...sharedProps} />;
       case "moderation":   return <ModerationTab {...sharedProps} />;
+      case "leaderboard":  return <LeaderboardTab {...sharedProps} />;
+      case "subathon":     return <SubathonTab {...sharedProps} />;
       default:             return null;
     }
   };
 
-  const navItems = [
-    { id: "overview",   label: "Overview" },
-    { id: "pagesetup",  label: "Page Setup" },
-    { id: "overlay",    label: "OBS Overlay" },
-    { id: "milestones", label: "Milestones" },
-    { id: "history",    label: "History" },
-    { id: "moderation", label: "Moderation" },
-  ];
-
   return (
-    <div className="flex h-screen overflow-hidden">
-      <aside className="w-64 bg-white/5 backdrop-blur-2xl border-r border-white/10 flex flex-col z-10 flex-shrink-0 shadow-2xl">
-        <div className="p-6 border-b border-white/10">
-          <h2 className="text-xl font-extrabold text-white tracking-tight">KasihinAja</h2>
-          <p className="text-xs font-mono font-semibold text-white/30 mt-2 truncate">{address}</p>
-        </div>
-        <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
-          {navItems.map(item => (
-            <button
-              key={item.id}
-              onClick={() => setActiveTab(item.id)}
-              className={`w-full flex text-left items-center px-4 py-3 rounded-xl font-semibold text-sm transition-all cursor-pointer ${activeTab === item.id ? "bg-white/10 text-white border border-white/20" : "text-white/40 hover:text-white/70 hover:bg-white/[0.04] border border-transparent"}`}
-            >
-              {item.label}
-            </button>
-          ))}
-        </nav>
-        <div className="p-4 border-t border-white/10">
-          <button onClick={logout} className="w-full bg-white/5 hover:bg-white/10 text-white/50 hover:text-white font-bold py-3 rounded-xl border border-white/10 transition-all text-sm cursor-pointer">Disconnect</button>
-        </div>
-      </aside>
-      <main className="flex-1 overflow-y-auto relative">
+    <div className="flex h-screen overflow-hidden bg-[#091520]">
+      <Sidebar 
+        address={address} 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        logout={logout} 
+      />
+      
+      <main className="flex-1 overflow-y-auto relative custom-scrollbar pb-32">
         {status && (
-          <div className="fixed top-6 right-6 bg-white/10 backdrop-blur-2xl text-white font-semibold py-3 px-6 rounded-2xl border border-white/20 z-50 shadow-2xl text-sm">
+          <div className="fixed top-6 right-6 bg-white/10 backdrop-blur-2xl text-white font-semibold py-3 px-6 rounded-2xl border border-white/20 z-50 shadow-2xl text-sm animate-fade-in">
             {status}
           </div>
         )}
-        <div className="p-6 md:p-10 pb-24 h-full">
+        <div className="p-6 md:p-10 h-full">
           <div className="max-w-5xl mx-auto">
             {renderTab()}
           </div>

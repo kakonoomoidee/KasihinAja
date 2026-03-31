@@ -109,52 +109,72 @@ export default function MilestoneOverlay() {
   }
 
   return (
-    <div className="absolute inset-0 bg-transparent overflow-hidden flex flex-col justify-end items-center p-8 pb-12">
-      <div className="w-full max-w-4xl">
-        <div className="relative px-8 py-5 rounded-[40px] flex flex-col justify-center overflow-hidden bg-black/40 backdrop-blur-xl border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.5)]">
-          <div className="flex justify-between items-end mb-3 px-2">
-            <div>
-              {milestoneName ? (
-                <h2 className="text-2xl font-extrabold text-white drop-shadow-md">
-                  {milestoneName}
-                </h2>
-              ) : (
-                <h2 className="text-xl font-bold text-white drop-shadow-md">
-                  {streamerName ? `${streamerName}'s Goal` : "Stream Goal"}
-                </h2>
-              )}
+    <div className="absolute inset-0 bg-transparent overflow-hidden flex flex-col justify-end items-center p-8 pb-12 font-sans">
+      <style>
+        {`
+          @keyframes slide-right {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(200%); }
+          }
+          .shine-effect {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 50%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            animation: slide-right 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+          }
+        `}
+      </style>
+
+      <div className="w-full max-w-2xl">
+        <div className="relative px-6 py-5 rounded-2xl flex flex-col justify-center overflow-hidden bg-black/60 backdrop-blur-md border border-white/10 shadow-[0_10px_40px_rgba(0,0,0,0.8)]">
+          
+          {/* Header Area */}
+          <div className="flex justify-between items-end mb-3">
+            <div className="flex flex-col">
+              <span className="text-[10px] uppercase font-black tracking-widest text-white/50 mb-0.5">
+                {isCompleted ? "Goal Completed" : "Current Goal"}
+              </span>
+              <h2 className="text-2xl font-black text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] tracking-tight">
+                {milestoneName || (streamerName ? `${streamerName}'s Goal` : "Stream Goal")}
+              </h2>
             </div>
-            <div className="text-right">
-              <span className="text-xl font-extrabold text-white drop-shadow-md">
-                {parseFloat(milestoneCurrent).toFixed(2)} <span className="text-sm font-semibold opacity-80 text-white">/ {parseFloat(milestoneTarget).toFixed(2)} ETH</span>
+            
+            <div className="flex flex-col items-end">
+              <span className="text-3xl font-black drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]" style={{ color: isCompleted ? "#fbbf24" : "#38bdf8" }}>
+                {rawPct.toFixed(1)}%
               </span>
             </div>
           </div>
 
-          <div className="w-full rounded-full h-6 overflow-hidden relative bg-black/50 border border-white/10">
+          {/* Progress Bar Container */}
+          <div className="w-full h-8 bg-black/80 rounded-xl overflow-hidden relative border border-white/10 shadow-inner">
+            {/* The Animated Fill */}
             <div
-              className="h-full rounded-full transition-all duration-1000 ease-out flex items-center justify-end px-3"
+              className="h-full rounded-xl transition-all duration-1000 ease-out relative overflow-hidden"
               style={{
-                width: `${Math.max(5, barPct)}%`,
-                background: isCompleted ? "#f59e0b" : "#0ea5e9",
-                boxShadow: isCompleted ? "0 0 16px rgba(245,158,11,0.5)" : "0 0 16px rgba(14,165,233,0.4)"
+                width: `${Math.max(2, barPct)}%`,
+                background: isCompleted ? "linear-gradient(90deg, #d97706, #f59e0b, #fbbf24)" : "linear-gradient(90deg, #0284c7, #0ea5e9, #38bdf8)",
+                boxShadow: isCompleted ? "inset 0 2px 4px rgba(255,255,255,0.3), 0 0 20px rgba(245,158,11,0.6)" : "inset 0 2px 4px rgba(255,255,255,0.3), 0 0 20px rgba(56,189,248,0.5)"
               }}
             >
-              {rawPct >= 15 && (
-                <span className="text-xs font-bold leading-none z-10 text-white drop-shadow-sm">
-                  {rawPct.toFixed(0)}%
-                </span>
-              )}
+              {/* Shine Animation */}
+              <div className="shine-effect" />
             </div>
-          </div>
-          
-          {isCompleted && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="text-3xl font-black text-white px-6 py-2 rounded-2xl bg-amber-500/90 backdrop-blur-md shadow-lg">
-                GOAL SURPASSED
+
+            {/* Text Overlay inside Bar */}
+            <div className="absolute inset-0 flex items-center justify-between px-4 pointer-events-none mix-blend-difference text-white">
+              <span className="text-sm font-black tracking-widest uppercase">
+                {parseFloat(milestoneCurrent).toFixed(3)} ETH
+              </span>
+              <span className="text-sm font-black tracking-widest uppercase opacity-80">
+                {parseFloat(milestoneTarget).toFixed(3)} ETH
               </span>
             </div>
-          )}
+          </div>
+
         </div>
       </div>
     </div>
