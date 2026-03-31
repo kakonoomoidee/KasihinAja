@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
-import { connectWallet, signPayload } from "../utils/web3";
+import { signPayload } from "../utils/web3";
 import { API_URL } from "../utils/config";
 import OverviewTab from "../components/dashboard/OverviewTab";
 import PageSetupTab from "../components/dashboard/PageSetupTab";
@@ -15,8 +16,8 @@ import ModerationTab from "../components/dashboard/ModerationTab";
  * @returns {React.ReactElement} The dashboard React node.
  */
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [address, setAddress] = useState("");
-  const [authenticated, setAuthenticated] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
 
   const [displayName, setDisplayName] = useState("");
@@ -43,55 +44,34 @@ export default function Dashboard() {
   const [status, setStatus] = useState("");
 
   useEffect(() => {
-    const saved = localStorage.getItem("kasihinaja_session");
-    if (!saved || !window.ethereum) return;
+    const savedAddress = localStorage.getItem("kasihinaja_session");
+    if (!savedAddress || !window.ethereum) {
+      navigate("/login");
+      return;
+    }
 
-    (async (savedAddress) => {
+    (async () => {
       try {
         const { ethers } = await import("ethers");
         const provider = new ethers.BrowserProvider(window.ethereum);
         const accounts = await provider.send("eth_accounts", []);
+        
         if (accounts.length > 0 && accounts[0].toLowerCase() === savedAddress) {
-          const signer = await provider.getSigner();
-          window.signerInstance = signer;
+          if (!window.signerInstance) {
+            window.signerInstance = await provider.getSigner();
+          }
           setAddress(savedAddress);
-          setAuthenticated(true);
           fetchData(savedAddress);
         } else {
           localStorage.removeItem("kasihinaja_session");
+          navigate("/login");
         }
       } catch {
         localStorage.removeItem("kasihinaja_session");
+        navigate("/login");
       }
-    })(saved);
-  }, []);
-
-
-  /**
-   * Cryptographically establishes user identity.
-   *
-   * @returns {Promise<void>}
-   */
-  const handleLogin = async () => {
-    try {
-      setLoading(true);
-      setStatus("Awaiting wallet approval...");
-      const signer = await connectWallet();
-      const userAddress = await signer.getAddress();
-      const payload = { timestamp: Date.now() };
-      await signPayload(signer, payload);
-      window.signerInstance = signer;
-      setAddress(userAddress.toLowerCase());
-      setAuthenticated(true);
-      localStorage.setItem("kasihinaja_session", userAddress.toLowerCase());
-      fetchData(userAddress.toLowerCase());
-      setStatus("");
-    } catch {
-      setStatus("Login failed.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    })();
+  }, [navigate]);
 
   /**
    * Refreshes all metrics and profile details.
@@ -272,18 +252,19 @@ export default function Dashboard() {
   };
 
   /**
-   * Cleanses the current session.
+   * Cleanses the current session and redirects to login.
    *
    * @returns {void}
    */
   const logout = () => {
-    setAuthenticated(false);
     setAddress("");
     localStorage.removeItem("kasihinaja_session");
     window.signerInstance = null;
+    navigate("/login");
   };
 
-  const glass = "bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-lg";
+  if (!address) return null;
+
   const glassInput = "bg-white/[0.03] backdrop-blur-sm border border-white/[0.08] rounded-xl p-3 outline-none text-white placeholder-white/25 font-medium";
   const btnPrimary = "bg-white/90 hover:bg-white text-slate-900 font-bold py-3 px-6 rounded-xl transition-all cursor-pointer disabled:opacity-40";
   const btnGhost = "bg-white/[0.04] hover:bg-white/[0.08] text-white/70 hover:text-white font-bold py-3 px-5 rounded-xl border border-white/[0.08] transition-all cursor-pointer";
@@ -304,21 +285,6 @@ export default function Dashboard() {
     handleResetMilestone, handleReplayAlert, triggerTestAlert,
     banKey, unbanKey,
   };
-
-  if (!authenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className={`${glass} p-12 text-center max-w-sm w-full shadow-2xl`}>
-          <h1 className="text-3xl font-extrabold text-white mb-2 tracking-tight">KasihinAja</h1>
-          <p className="text-white/50 mb-8 text-sm font-medium">Connect your wallet to access dashboard</p>
-          <button onClick={handleLogin} disabled={loading} className={`w-full ${btnPrimary} py-4 text-sm tracking-wide`}>
-            {loading ? "Signing..." : "Connect MetaMask"}
-          </button>
-          {status && <p className="mt-6 text-white/70 text-sm font-semibold bg-white/5 backdrop-blur-sm py-3 rounded-xl border border-white/10">{status}</p>}
-        </div>
-      </div>
-    );
-  }
 
   const renderTab = () => {
     switch (activeTab) {

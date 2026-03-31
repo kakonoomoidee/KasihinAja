@@ -3,8 +3,11 @@ import { useParams } from "react-router-dom";
 import { ethers } from "ethers";
 import axios from "axios";
 import { DONATION_ROUTER_ADDRESS, ROUTER_ABI, API_URL } from "../utils/config";
+import AmountInput from "../components/shared/AmountInput";
+import YouTubeInput from "../components/shared/media/YouTubeInput";
+import TikTokInput from "../components/shared/media/TikTokInput";
+import VoiceNoteInput from "../components/shared/media/VoiceNoteInput";
 
-const PRESET_AMOUNTS = ["0.0005", "0.001", "0.01", "1.0"];
 const MEDIA_OPTIONS = [
   { id: "none",       label: "None" },
   { id: "youtube",    label: "YouTube" },
@@ -13,7 +16,7 @@ const MEDIA_OPTIONS = [
 ];
 
 /**
- * Renders the public-facing tipping page with advanced form, dynamic validations, and modern media inputs.
+ * Renders the public-facing tipping page with a split-screen layout, dynamic validations, and modern media previews.
  *
  * @returns {React.ReactElement} The visual React element.
  */
@@ -33,6 +36,7 @@ export default function PublicProfile() {
 
   const [vnBlob, setVnBlob] = useState(null);
   const [isRecording, setIsRecording] = useState(false);
+  const [recordingStream, setRecordingStream] = useState(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
   const recorderRef = useRef(null);
@@ -64,13 +68,13 @@ export default function PublicProfile() {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setRecordingStream(stream);
       const recorder = new MediaRecorder(stream);
       chunksRef.current = [];
       recorder.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       recorder.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: "audio/webm" });
         setVnBlob(blob);
-        stream.getTracks().forEach(track => track.stop());
       };
       recorderRef.current = recorder;
       recorder.start();
@@ -79,6 +83,7 @@ export default function PublicProfile() {
         if (recorderRef.current && recorderRef.current.state === "recording") {
           recorderRef.current.stop();
           setIsRecording(false);
+          setRecordingStream(null);
         }
       }, 30000);
     } catch {
@@ -100,6 +105,10 @@ export default function PublicProfile() {
     if (recorderRef.current && recorderRef.current.state === "recording") {
       recorderRef.current.stop();
       setIsRecording(false);
+    }
+    if (recordingStream) {
+      recordingStream.getTracks().forEach(track => track.stop());
+      setRecordingStream(null);
     }
   };
 
@@ -223,268 +232,201 @@ export default function PublicProfile() {
   });
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-4">
-      <div className={`${glass} p-8 max-w-md w-full shadow-2xl`}>
-
-        <div className="flex flex-col items-center mb-8">
-          {profile.avatar_url ? (
-            <img src={profile.avatar_url} alt="Profile" className="w-24 h-24 rounded-2xl border-2 border-white/30 mb-4 object-cover shadow-lg" />
-          ) : (
-            <div className="w-24 h-24 rounded-2xl bg-white/10 flex items-center justify-center border-2 border-white/20 mb-4">
-              <span className="text-white/40 text-3xl font-extrabold">?</span>
-            </div>
-          )}
-          <h1 className="text-3xl font-extrabold text-white text-center tracking-tight">{profile.display_name}</h1>
-          <p className="text-xs text-white/30 font-mono mt-2 bg-white/5 py-1.5 px-3.5 rounded-full border border-white/10">{streamerAddress}</p>
-
-          {profile.milestone_target > 0 && (() => {
-            const rawPct = ((profile.milestone_current || 0) / profile.milestone_target) * 100;
-            const barPct = Math.min(100, rawPct);
-            const overflowed = rawPct >= 100;
-            return (
-              <div className="w-full mt-6 px-1">
-                <div className="flex justify-between text-xs font-bold text-white/50 mb-2 tracking-wide">
-                  <span>{profile.milestone_current ? parseFloat(profile.milestone_current).toFixed(3) : "0.000"} ETH</span>
-                  <span style={{ color: overflowed ? "#fbbf24" : "#7dd3fc" }}>
-                    {rawPct.toFixed(1)}% of {parseFloat(profile.milestone_target).toFixed(3)} ETH
-                  </span>
-                </div>
-                <div className="w-full bg-white/[0.06] rounded-full h-2.5 border border-white/10 overflow-hidden">
-                  <div
-                    className="h-full rounded-full transition-all duration-1000"
-                    style={{
-                      width: `${Math.max(2, barPct)}%`,
-                      background: overflowed ? "#f59e0b" : "#0ea5e9",
-                      boxShadow: overflowed ? "0 0 10px rgba(245,158,11,0.5)" : "0 0 10px rgba(14,165,233,0.4)"
-                    }}
-                  />
-                </div>
+    <div className="min-h-screen flex items-center justify-center p-4 lg:p-8">
+      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+        
+        <div className="lg:col-span-5 flex flex-col gap-6">
+          <div className={`${glass} p-8 flex flex-col items-center text-center`}>
+            {profile.avatar_url ? (
+              <img src={profile.avatar_url} alt="Profile" className="w-32 h-32 rounded-3xl border-4 border-white/10 mb-6 object-cover shadow-2xl" />
+            ) : (
+              <div className="w-32 h-32 rounded-3xl bg-white/10 flex items-center justify-center border-4 border-white/10 mb-6 shadow-2xl">
+                <span className="text-white/40 text-4xl font-extrabold">?</span>
               </div>
-            );
-          })()}
+            )}
+            <h1 className="text-3xl font-extrabold text-white tracking-tight">{profile.display_name}</h1>
+            <p className="text-xs text-white/40 font-mono mt-3 bg-white/5 py-2 px-4 rounded-full border border-white/10 break-all">{streamerAddress}</p>
+
+            {profile.milestone_target > 0 && (() => {
+              const rawPct = ((profile.milestone_current || 0) / profile.milestone_target) * 100;
+              const barPct = Math.min(100, rawPct);
+              const overflowed = rawPct >= 100;
+              return (
+                <div className="w-full mt-8 bg-white/[0.02] p-5 rounded-2xl border border-white/5">
+                  <div className="flex justify-between items-end mb-3">
+                    <div className="text-left">
+                      <p className="text-[10px] uppercase font-bold text-white/40 mb-1">Current</p>
+                      <span className="text-sm font-extrabold text-white">{profile.milestone_current ? parseFloat(profile.milestone_current).toFixed(3) : "0.000"} ETH</span>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase font-bold text-white/40 mb-1">Goal</p>
+                      <span className="text-xs font-bold" style={{ color: overflowed ? "#fbbf24" : "#7dd3fc" }}>
+                        {rawPct.toFixed(1)}% of {parseFloat(profile.milestone_target).toFixed(3)} ETH
+                      </span>
+                    </div>
+                  </div>
+                  <div className="w-full bg-black/40 rounded-full h-3 border border-white/10 overflow-hidden shadow-inner">
+                    <div
+                      className="h-full rounded-full transition-all duration-1000 relative"
+                      style={{
+                        width: `${Math.max(2, barPct)}%`,
+                        background: overflowed ? "linear-gradient(90deg, #d97706, #fbbf24)" : "linear-gradient(90deg, #0284c7, #38bdf8)",
+                        boxShadow: overflowed ? "0 0 15px rgba(245,158,11,0.6)" : "0 0 15px rgba(14,165,233,0.5)"
+                      }}
+                    >
+                      <div className="absolute top-0 left-0 w-full h-1/2 bg-white/20 rounded-t-full" />
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
         </div>
 
-        <form onSubmit={handleDonate} className="flex flex-col gap-4">
+        <div className="lg:col-span-7">
+          <div className={`${glass} p-8 shadow-2xl`}>
+            <form onSubmit={handleDonate} className="flex flex-col gap-6">
 
-          <div>
-            <label className="block text-xs font-bold text-blue-300 mb-2 uppercase tracking-wider">Your Name</label>
-            <input
-              type="text"
-              className={glassInput}
-              value={isAnonymous ? "" : donorName}
-              onChange={(e) => setDonorName(e.target.value)}
-              placeholder={isAnonymous ? "Anonymous" : "Your name..."}
-              disabled={isAnonymous}
-              style={{ opacity: isAnonymous ? 0.4 : 1 }}
-            />
-            <div className="mt-2.5 flex justify-end px-1">
-              <label className="flex items-center gap-2 cursor-pointer select-none group">
-                <input
-                  type="checkbox"
-                  checked={isAnonymous}
-                  onChange={(e) => setIsAnonymous(e.target.checked)}
-                  className="w-4 h-4 rounded border-white/20 bg-white/5 accent-blue-500 cursor-pointer"
-                />
-                <span className="text-xs font-bold text-white/50 group-hover:text-white/80 transition-colors">Send as Anonymous</span>
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-blue-300 mb-2 uppercase tracking-wider">Amount (ETH)</label>
-            <div className="flex gap-2 mb-2 flex-wrap">
-              {PRESET_AMOUNTS.map((preset) => (
-                <button
-                  key={preset}
-                  type="button"
-                  onClick={() => { setAmount(preset); setAmountError(""); }}
-                  className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${amount === preset ? "bg-blue-500/50 border-blue-400/60 text-white" : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white"}`}
-                >
-                  {preset}
-                </button>
-              ))}
-            </div>
-            <input
-              type="text"
-              required
-              className={`${glassInput} ${amountError ? "border-red-500/60 focus:border-red-500/80 bg-red-500/5" : "focus:border-blue-400/50"}`}
-              value={amount}
-              onChange={handleAmountChange}
-              placeholder="0.00"
-            />
-            {amountError && (
-              <p className="text-xs text-red-400 font-bold mt-1.5">{amountError}</p>
-            )}
-            {!amountError && parseFloat(amount) > 0 && parseFloat(amount) < 0.0005 && (
-              <p className="text-xs text-red-400 font-bold mt-1.5">Minimum tip is 0.0005 ETH</p>
-            )}
-            {!amountError && (selectedMedia === "youtube" || selectedMedia === "tiktok") && pricePerSec > 0 && (
-              <div className="mt-3 bg-white/[0.03] border border-white/10 rounded-xl p-4 space-y-3">
-                <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Media Info</p>
-                <div className="grid grid-cols-2 gap-3 text-xs font-semibold">
-                  <div>
-                    <p className="text-white/30 mb-0.5">Rate</p>
-                    <p className="text-white/70">{pricePerSec} ETH/sec</p>
-                  </div>
-                  <div>
-                    <p className="text-white/30 mb-0.5">Max Duration</p>
-                    <p className="text-white/70">30 min (1800s)</p>
+              <div>
+                <label className="block text-xs font-bold text-blue-300 mb-2 uppercase tracking-wider">Your Name</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    className={glassInput}
+                    value={isAnonymous ? "" : donorName}
+                    onChange={(e) => setDonorName(e.target.value)}
+                    placeholder={isAnonymous ? "Anonymous" : "Your name..."}
+                    disabled={isAnonymous}
+                    style={{ opacity: isAnonymous ? 0.4 : 1 }}
+                  />
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
+                    <label className="flex items-center gap-2 cursor-pointer select-none group bg-black/40 py-1.5 px-3 rounded-lg border border-white/10">
+                      <input
+                        type="checkbox"
+                        checked={isAnonymous}
+                        onChange={(e) => setIsAnonymous(e.target.checked)}
+                        className="w-3.5 h-3.5 rounded border-white/20 bg-white/5 accent-blue-500 cursor-pointer"
+                      />
+                      <span className="text-[10px] uppercase font-bold text-white/60 group-hover:text-white/90 transition-colors">Anon</span>
+                    </label>
                   </div>
                 </div>
-                {parseFloat(amount) > 0 && (
-                  <div className="bg-white/[0.06] rounded-lg px-3 py-2 flex items-center justify-between">
-                    <span className="text-xs text-white/50 font-medium">Estimated Duration</span>
-                    <span className="text-xs font-extrabold text-white">
-                      {Math.min(1800, Math.floor(parseFloat(amount) / pricePerSec))}s
-                    </span>
+              </div>
+
+              <div>
+                <AmountInput 
+                  amount={amount} 
+                  setAmount={setAmount} 
+                  handleAmountChange={handleAmountChange} 
+                  amountError={amountError} 
+                  glassInput={glassInput} 
+                />
+
+                {!amountError && (selectedMedia === "youtube" || selectedMedia === "tiktok") && pricePerSec > 0 && (
+                  <div className="mt-3 bg-white/[0.03] border border-white/10 rounded-xl p-4 space-y-3">
+                    <p className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Media Info</p>
+                    <div className="grid grid-cols-2 gap-3 text-xs font-semibold">
+                      <div>
+                        <p className="text-white/30 mb-0.5">Rate</p>
+                        <p className="text-white/70">{pricePerSec} ETH/sec</p>
+                      </div>
+                      <div>
+                        <p className="text-white/30 mb-0.5">Max Duration</p>
+                        <p className="text-white/70">30 min (1800s)</p>
+                      </div>
+                    </div>
+                    {parseFloat(amount) > 0 && (
+                      <div className="bg-white/[0.06] rounded-lg px-3 py-2 flex items-center justify-between">
+                        <span className="text-xs text-white/50 font-medium">Estimated Duration</span>
+                        <span className="text-xs font-extrabold text-white">
+                          {Math.min(1800, Math.floor(parseFloat(amount) / pricePerSec))}s
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-            )}
-          </div>
 
-          <div>
-            <label className="block text-xs font-bold text-blue-300 mb-2 uppercase tracking-wider">Message</label>
-            <textarea
-              required
-              maxLength={200}
-              className={`${glassInput} min-h-[90px] resize-none focus:border-blue-400/50`}
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Keep up the great content!"
-            />
-          </div>
-
-          {mediaEnabled && (
-            <div>
-              <label className="block text-xs font-bold text-blue-300 mb-2 uppercase tracking-wider">Media Share</label>
-              <div className="grid grid-cols-4 gap-2 mb-3">
-                {availableMediaOptions.map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => { setSelectedMedia(opt.id); setMediaLink(""); setVnBlob(null); }}
-                    className={`py-2 px-2 rounded-xl font-bold text-xs transition-all cursor-pointer border text-center ${selectedMedia === opt.id ? "bg-blue-500/40 border-blue-400/60 text-white" : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white"}`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
+              <div>
+                <label className="block text-xs font-bold text-blue-300 mb-2 uppercase tracking-wider">Message</label>
+                <div className="relative">
+                  <textarea
+                    required
+                    maxLength={250}
+                    className={`${glassInput} min-h-[100px] resize-none focus:border-blue-400/50 pb-8`}
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="Keep up the great content!"
+                  />
+                  <span className={`absolute bottom-3 right-3 text-xs font-bold ${message.length === 250 ? 'text-red-400' : 'text-white/30'}`}>
+                    {message.length}/250
+                  </span>
+                </div>
               </div>
 
-              {selectedMedia === "youtube" && (
-                <div className="bg-red-500/10 backdrop-blur-sm border border-red-400/20 rounded-2xl p-4 space-y-2">
-                  <input
-                    type="text"
-                    className={`${glassInput} text-sm focus:border-red-400/50`}
-                    value={mediaLink}
-                    onChange={(e) => setMediaLink(e.target.value)}
-                    placeholder="https://www.youtube.com/watch?v=..."
-                  />
-                  <div className="flex items-center gap-2">
-                    <label className="text-xs font-bold text-red-300/80 whitespace-nowrap">Start at (sec):</label>
-                    <input
-                      type="number"
-                      min="0"
-                      className="w-24 bg-white/10 border border-white/20 rounded-lg p-2 outline-none text-white font-bold text-sm focus:border-red-400/50"
-                      value={youtubeStart}
-                      onChange={(e) => setYoutubeStart(e.target.value === "" ? "" : Math.max(0, parseInt(e.target.value) || 0))}
-                      onBlur={(e) => { if (e.target.value === "") setYoutubeStart(0); }}
-                    />
+              {mediaEnabled && (
+                <div>
+                  <label className="block text-xs font-bold text-blue-300 mb-2 uppercase tracking-wider">Media Share</label>
+                  <div className="grid grid-cols-4 gap-2 mb-4">
+                    {availableMediaOptions.map((opt) => (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => { setSelectedMedia(opt.id); setMediaLink(""); setVnBlob(null); }}
+                        className={`py-3 px-2 rounded-xl font-bold text-xs transition-all cursor-pointer border text-center ${selectedMedia === opt.id ? "bg-blue-500/40 border-blue-400/60 text-white shadow-[0_0_15px_rgba(59,130,246,0.3)]" : "bg-white/5 border-white/10 text-white/50 hover:bg-white/10 hover:text-white"}`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
                   </div>
-                </div>
-              )}
 
-              {selectedMedia === "tiktok" && (
-                <div className="bg-pink-500/10 backdrop-blur-sm border border-pink-400/20 rounded-2xl p-4">
-                  <input
-                    type="text"
-                    className={`${glassInput} text-sm focus:border-pink-400/50`}
-                    value={mediaLink}
-                    onChange={(e) => setMediaLink(e.target.value)}
-                    placeholder="https://www.tiktok.com/@user/video/..."
-                  />
-                </div>
-              )}
-
-              {selectedMedia === "vn" && (
-                <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.08] rounded-full p-2 flex items-center gap-3 relative overflow-hidden shadow-inner">
-                  <style>
-                    {`
-                      @keyframes waveform {
-                        0%, 100% { height: 20%; }
-                        50% { height: 100%; }
-                      }
-                      .wave-bar {
-                        width: 3px;
-                        background-color: #60a5fa;
-                        border-radius: 4px;
-                        animation: waveform 1s ease-in-out infinite;
-                      }
-                    `}
-                  </style>
-
-                  {!isRecording && !vnBlob && (
-                    <div className="flex items-center gap-3 w-full px-2 py-1">
-                      <button
-                        type="button"
-                        onClick={startRecording}
-                        className="w-10 h-10 rounded-full bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 flex items-center justify-center border border-blue-500/30 transition-all cursor-pointer shadow-lg"
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
-                      </button>
-                      <span className="text-sm font-semibold text-white/40">Tap mic to record</span>
-                    </div>
+                  {selectedMedia === "youtube" && (
+                    <YouTubeInput 
+                      mediaLink={mediaLink} 
+                      setMediaLink={setMediaLink} 
+                      youtubeStart={youtubeStart} 
+                      setYoutubeStart={setYoutubeStart} 
+                      glassInput={glassInput} 
+                    />
                   )}
 
-                  {isRecording && (
-                    <div className="flex items-center gap-3 w-full px-2 py-1">
-                      <button
-                        type="button"
-                        onClick={stopRecording}
-                        className="w-10 h-10 rounded-full bg-red-500/20 text-red-400 flex items-center justify-center border border-red-500/30 animate-pulse cursor-pointer shadow-lg"
-                      >
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h12v12H6z"/></svg>
-                      </button>
-                      <div className="flex items-center gap-[3px] h-6 flex-1 px-2">
-                        {[...Array(15)].map((_, i) => (
-                          <div key={i} className="wave-bar" style={{ animationDelay: `${i * 0.1}s`, height: `${Math.random() * 80 + 20}%` }} />
-                        ))}
-                      </div>
-                      <span className="text-xs font-mono text-red-400 font-bold pr-2 animate-pulse">REC</span>
-                    </div>
+                  {selectedMedia === "tiktok" && (
+                    <TikTokInput 
+                      mediaLink={mediaLink} 
+                      setMediaLink={setMediaLink} 
+                      glassInput={glassInput} 
+                    />
                   )}
 
-                  {vnBlob && (
-                    <div className="flex items-center gap-2 w-full px-1">
-                      <audio controls src={URL.createObjectURL(vnBlob)} className="flex-1 h-10 custom-audio" />
-                      <button
-                        type="button"
-                        onClick={() => setVnBlob(null)}
-                        className="w-10 h-10 flex items-center justify-center rounded-full bg-white/5 hover:bg-red-500/20 text-white/40 hover:text-red-400 transition-all cursor-pointer mr-1"
-                      >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>
-                      </button>
-                    </div>
+                  {selectedMedia === "vn" && (
+                    <VoiceNoteInput 
+                      isRecording={isRecording} 
+                      startRecording={startRecording} 
+                      stopRecording={stopRecording} 
+                      vnBlob={vnBlob} 
+                      setVnBlob={setVnBlob} 
+                      recordingStream={recordingStream}
+                    />
                   )}
                 </div>
               )}
-            </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading || !!amountError}
-            className="w-full bg-blue-500/70 hover:bg-blue-400 backdrop-blur-sm text-white font-extrabold py-4 px-4 rounded-xl border border-white/20 transition-all disabled:opacity-40 disabled:cursor-not-allowed mt-2 tracking-wide shadow-lg shadow-blue-500/20 cursor-pointer"
-          >
-            {loading ? "Confirming Block..." : "Send Ethereum Tip"}
-          </button>
-        </form>
+              <button
+                type="submit"
+                disabled={loading || !!amountError}
+                className="w-full bg-blue-600 hover:bg-blue-500 text-white font-extrabold py-4 px-4 rounded-xl border border-blue-400/30 transition-all disabled:opacity-40 disabled:cursor-not-allowed mt-2 tracking-wide shadow-[0_0_20px_rgba(37,99,235,0.3)] cursor-pointer"
+              >
+                {loading ? "Confirming Block..." : "Send Ethereum Tip"}
+              </button>
+            </form>
 
-        {status && (
-          <div className="mt-6 p-3.5 bg-white/5 backdrop-blur-sm text-white/90 border border-white/10 text-center rounded-xl text-sm break-words font-semibold">
-            {status}
+            {status && (
+              <div className="mt-6 p-4 bg-white/5 backdrop-blur-sm text-white/90 border border-white/10 text-center rounded-xl text-sm break-words font-semibold shadow-inner">
+                {status}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );
