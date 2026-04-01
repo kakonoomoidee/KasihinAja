@@ -18,8 +18,7 @@ const formatClock = (totalSeconds) => {
 
 /**
  * OBS browser-source subathon timer overlay.
- * Receives SUBATHON_UPDATE events via WebSocket and maintains its own
- * one-second tick so the display stays accurate between syncs.
+ * Clean text-only display with an animated "+X" addition indicator.
  *
  * @returns {React.ReactElement} The transparent subathon overlay element.
  */
@@ -27,44 +26,88 @@ export default function SubathonOverlay() {
   const { streamerAddress } = useParams();
   const [remaining, setRemaining] = useState(0);
   const [isActive, setIsActive] = useState(false);
-  const [title, setTitle] = useState("Subathon");
   const [endTime, setEndTime] = useState(null);
-  const [syncFlash, setSyncFlash] = useState(false);
+  
+  // States for the "+X" animation
+  const [addedSeconds, setAddedSeconds] = useState(0);
+  const [showAdded, setShowAdded] = useState(false);
 
   const wsRef = useRef(null);
   const tickRef = useRef(null);
-  const syncTimerRef = useRef(null);
+  const prevRemainingRef = useRef(null);
+  const addedTimerRef = useRef(null);
+
+  // Force body background to transparent for OBS
+  useEffect(() => {
+    document.documentElement.style.setProperty("background", "transparent", "important");
+    document.body.style.setProperty("background", "transparent", "important");
+    const rootElement = document.getElementById("root");
+    if (rootElement) {
+      rootElement.style.setProperty("background", "transparent", "important");
+    }
+    return () => {
+      document.documentElement.style.removeProperty("background");
+      document.body.style.removeProperty("background");
+      if (rootElement) rootElement.style.removeProperty("background");
+    };
+  }, []);
 
   useEffect(() => {
     if (!streamerAddress) return;
 
-    const ws = new WebSocket(`${WS_URL}?streamer=${streamerAddress}`);
-    wsRef.current = ws;
+    const normalizedAddress = streamerAddress.toLowerCase();
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        if (data.type === "SUBATHON_UPDATE") {
-          const { remaining: r, isActive: active, endTime: et, title: t } = data.payload;
-          if (t) setTitle(t);
-          setIsActive(!!active);
-          if (et && et > Date.now()) {
-            setEndTime(et);
-            setRemaining(Math.max(0, (et - Date.now()) / 1000));
-          } else {
-            setEndTime(null);
-            setRemaining(typeof r === "number" ? r : 0);
+    const connectWebsocket = () => {
+      const ws = new WebSocket(`${WS_URL}?streamer=${normalizedAddress}`);
+
+      wsRef.current = ws;
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === "SUBATHON_UPDATE") {
+            const { remaining: r, isActive: active, endTime: et } = data.payload;
+            setIsActive(!!active);
+
+            let currentR = 0;
+            if (et && et > Date.now()) {
+              setEndTime(et);
+              currentR = (et - Date.now()) / 1000;
+            } else {
+              setEndTime(null);
+              currentR = typeof r === "number" ? r : 0;
+            }
+
+            // Detect if time was added (threshold of > 2 seconds to avoid tick sync issues)
+            if (prevRemainingRef.current !== null) {
+              const diff = currentR - prevRemainingRef.current;
+              if (diff > 2) {
+                setAddedSeconds(Math.round(diff));
+                setShowAdded(true);
+                clearTimeout(addedTimerRef.current);
+                // Hide the "+X" text after 2.5 seconds
+                addedTimerRef.current = setTimeout(() => setShowAdded(false), 2500);
+              }
+            }
+            
+            prevRemainingRef.current = currentR;
+            setRemaining(Math.max(0, currentR));
           }
-          setSyncFlash(true);
-          clearTimeout(syncTimerRef.current);
-          syncTimerRef.current = setTimeout(() => setSyncFlash(false), 2000);
+        } catch {
+          // Non-fatal.
         }
-      } catch {
-        // Non-fatal.
-      }
+      };
+
+      ws.onclose = () => {
+        setTimeout(connectWebsocket, 3000);
+      };
     };
 
-    return () => ws.close();
+    connectWebsocket();
+
+    return () => {
+      if (wsRef.current) wsRef.current.close();
+    };
   }, [streamerAddress]);
 
   useEffect(() => {
@@ -73,6 +116,7 @@ export default function SubathonOverlay() {
       tickRef.current = setInterval(() => {
         const r = Math.max(0, (endTime - Date.now()) / 1000);
         setRemaining(r);
+        prevRemainingRef.current = r;
         if (r <= 0) {
           setIsActive(false);
           clearInterval(tickRef.current);
@@ -81,7 +125,13 @@ export default function SubathonOverlay() {
     } else if (isActive && !endTime) {
       tickRef.current = setInterval(() => {
         setRemaining((prev) => {
-          if (prev <= 1) { setIsActive(false); clearInterval(tickRef.current); return 0; }
+          if (prev <= 1) { 
+            setIsActive(false); 
+            clearInterval(tickRef.current); 
+            prevRemainingRef.current = 0;
+            return 0; 
+          }
+          prevRemainingRef.current = prev - 1;
           return prev - 1;
         });
       }, 1000);
@@ -89,92 +139,49 @@ export default function SubathonOverlay() {
     return () => clearInterval(tickRef.current);
   }, [isActive, endTime]);
 
+  // Color changes when time is running out
   const timerColor = remaining <= 60 ? "#f87171" : remaining <= 300 ? "#fbbf24" : "#ffffff";
-  const glowColor = remaining <= 60 ? "rgba(248,113,113,0.3)" : remaining <= 300 ? "rgba(251,191,36,0.3)" : "rgba(255,255,255,0.1)";
-
-  const [h, m, s] = formatClock(remaining).split(":");
 
   return (
-    <div className="bg-transparent w-[380px] p-3 font-sans select-none">
-      <div
-        className="rounded-2xl overflow-hidden fade-in"
-        style={{
-          background: "rgba(5, 11, 20, 0.85)",
-          backdropFilter: "blur(20px)",
-          WebkitBackdropFilter: "blur(20px)",
-          border: "1px solid rgba(255,255,255,0.08)",
-          boxShadow: `0 8px 32px rgba(0,0,0,0.6), 0 0 40px ${glowColor}`,
-        }}
-      >
-        <div
-          className="px-5 py-2.5 flex items-center justify-between border-b"
-          style={{ borderColor: "rgba(255,255,255,0.06)" }}
+    <div className="absolute inset-0 bg-transparent flex items-start justify-start p-8 overflow-hidden font-sans select-none">
+      <style>
+        {`
+          @keyframes slideUpFade {
+            0% { opacity: 0; transform: translateY(15px) scale(0.8); }
+            15% { opacity: 1; transform: translateY(0) scale(1.1); }
+            30% { transform: scale(1); }
+            80% { opacity: 1; transform: translateY(-5px); }
+            100% { opacity: 0; transform: translateY(-15px); }
+          }
+          .animate-added-time {
+            animation: slideUpFade 2.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          }
+        `}
+      </style>
+
+      <div className="flex items-center gap-4">
+        {/* Pure Timer Text */}
+        <div 
+          className="text-7xl font-black tabular-nums drop-shadow-[0_4px_15px_rgba(0,0,0,0.8)]"
+          style={{ 
+            fontFamily: "'Courier New', Courier, monospace",
+            color: timerColor,
+            textShadow: `0 0 20px ${timerColor}88`
+          }}
         >
-          <div className="flex items-center gap-2">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(125,211,252,0.7)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <polyline points="12 6 12 12 16 14"></polyline>
-            </svg>
-            <span className="text-[10px] font-black uppercase tracking-widest" style={{ color: "rgba(125,211,252,0.7)" }}>
-              {title}
-            </span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            {syncFlash && (
-              <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: "#34d399" }}>
-                Synced
-              </span>
-            )}
-            <span
-              className="w-1.5 h-1.5 rounded-full"
-              style={{ background: isActive ? "#34d399" : "rgba(255,255,255,0.2)" }}
-            />
-            <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: isActive ? "#34d399" : "rgba(255,255,255,0.3)" }}>
-              {isActive ? "Live" : "Paused"}
-            </span>
-          </div>
+          {formatClock(remaining)}
         </div>
 
-        <div className="px-6 py-8 text-center" style={{ fontFamily: "'Courier New', monospace" }}>
-          <div className="flex items-center justify-center gap-1">
-            {[h, m, s].map((segment, i) => (
-              <React.Fragment key={i}>
-                <div
-                  className="flex flex-col items-center"
-                >
-                  <div
-                    className="text-6xl font-black tabular-nums leading-none px-2 py-2 rounded-xl min-w-[72px] text-center transition-colors duration-700"
-                    style={{
-                      color: timerColor,
-                      background: "rgba(255,255,255,0.03)",
-                      border: "1px solid rgba(255,255,255,0.06)",
-                      textShadow: `0 0 20px ${timerColor}66`,
-                    }}
-                  >
-                    {segment}
-                  </div>
-                  <span className="text-[9px] font-bold uppercase tracking-widest mt-1.5" style={{ color: "rgba(255,255,255,0.2)" }}>
-                    {["Hrs", "Min", "Sec"][i]}
-                  </span>
-                </div>
-                {i < 2 && (
-                  <span
-                    className="text-4xl font-black mb-6 select-none"
-                    style={{ color: timerColor, opacity: isActive ? 0.7 : 0.2 }}
-                  >
-                    :
-                  </span>
-                )}
-              </React.Fragment>
-            ))}
-          </div>
-        </div>
-
-        {!isActive && remaining === 0 && (
-          <div className="px-6 pb-5 text-center">
-            <p className="text-xs font-bold" style={{ color: "rgba(255,255,255,0.2)" }}>
-              Timer ended
-            </p>
+        {/* Added Time Pop-up (+Xs) */}
+        {showAdded && (
+          <div 
+            className="text-5xl font-black text-emerald-400 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] animate-added-time"
+            style={{
+              fontFamily: "'Courier New', Courier, monospace",
+              textShadow: "0 0 15px rgba(52,211,153,0.6)"
+            }}
+          >
+            +{addedSeconds}s
           </div>
         )}
       </div>

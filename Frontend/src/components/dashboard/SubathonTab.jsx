@@ -1,49 +1,25 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { API_URL, WS_URL } from "../../utils/config";
-
-const DURATION_PRESETS = [
-  { label: "1s", seconds: 1 },
-  { label: "5s", seconds: 5 },
-  { label: "10s", seconds: 10 },
-  { label: "30s", seconds: 30 },
-  { label: "60s", seconds: 60 },
-  { label: "10m", seconds: 600 },
-  { label: "30m", seconds: 1800 },
-  { label: "1h", seconds: 3600 },
-];
-
-const ADD_PRESETS = [
-  { label: "+30s", seconds: 30 },
-  { label: "+1m", seconds: 60 },
-  { label: "+5m", seconds: 300 },
-  { label: "+10m", seconds: 600 },
-];
+import ActionButton from "../shared/ActionButton";
+import AmountInput from "../shared/AmountInput";
 
 /**
- * Formats a total seconds value into a HH:MM:SS string.
+ * Formats a total seconds value into a DD:HH:MM:SS string.
+ * Omits days if 0.
  *
  * @param {number} totalSeconds The total seconds to format.
  * @returns {string} The formatted time string.
  */
 const formatClock = (totalSeconds) => {
   const s = Math.max(0, Math.floor(totalSeconds));
-  const h = Math.floor(s / 3600);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
   const m = Math.floor((s % 3600) / 60);
   const sec = s % 60;
-  return [h, m, sec].map((v) => String(v).padStart(2, "0")).join(":");
-};
-
-/**
- * Formats seconds into a short human-readable duration label.
- *
- * @param {number} seconds The total seconds.
- * @returns {string} A short label like "1m" or "1h".
- */
-const formatDuration = (seconds) => {
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`;
-  return `${Math.floor(seconds / 3600)}h`;
+  
+  const timeStr = [h, m, sec].map((v) => String(v).padStart(2, "0")).join(":");
+  return d > 0 ? `${d}d ${timeStr}` : timeStr;
 };
 
 /**
@@ -63,24 +39,50 @@ export default function SubathonTab({
   address, subathonConfig, setSubathonConfig, mediaPricePerSecond, loading, handleSaveProfile,
 }) {
   const [endTime, setEndTime] = useState(null);
-  const [remaining, setRemaining] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const [subathonTitle, setSubathonTitle] = useState("Subathon");
   const [syncStatus, setSyncStatus] = useState("");
-  const [durationSeconds, setDurationSeconds] = useState(60);
-  const [priceEth, setPriceEth] = useState("");
-  const [labelText, setLabelText] = useState("");
-  const [addError, setAddError] = useState("");
-  const [manualAddSeconds, setManualAddSeconds] = useState(0);
+  
+  // States for new Time Inputs (Set Timer)
+  const [setDays, setSetDays] = useState(0);
+  const [setHours, setSetHours] = useState(0);
+  const [setMinutes, setSetMinutes] = useState(0);
+  const [setSeconds, setSetSeconds] = useState(0);
 
+  // States for Automation Rule Input
+  const [rulePrice, setRulePrice] = useState("");
+  const [ruleDays, setRuleDays] = useState(0);
+  const [ruleHours, setRuleHours] = useState(0);
+  const [ruleMinutes, setRuleMinutes] = useState(0);
+  const [ruleSeconds, setRuleSeconds] = useState(0);
+
+  const [remaining, setRemaining] = useState(() => {
+    return parseInt(localStorage.getItem(`subathon_paused_${address}`) || "0", 10);
+  });
+
+  const remainingRef = useRef(remaining);
+  const isActiveRef = useRef(isActive);
+  const endTimeRef = useRef(endTime);
+  const subathonTitleRef = useRef(subathonTitle);
+  const mediaPricePerSecondRef = useRef(mediaPricePerSecond);
   const wsRef = useRef(null);
   const tickRef = useRef(null);
   const syncTimerRef = useRef(null);
 
-  const glass = "bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-2xl";
-  const glassInput = "bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.06] transition-all w-full";
+  useEffect(() => { remainingRef.current = remaining; }, [remaining]);
+  useEffect(() => { isActiveRef.current = isActive; }, [isActive]);
+  useEffect(() => { endTimeRef.current = endTime; }, [endTime]);
+  useEffect(() => { subathonTitleRef.current = subathonTitle; }, [subathonTitle]);
+  useEffect(() => { mediaPricePerSecondRef.current = mediaPricePerSecond; }, [mediaPricePerSecond]);
 
+  const glass = "bg-white/[0.04] backdrop-blur-xl border border-white/10 rounded-2xl shadow-lg";
+  const glassInput = "bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-sm text-white placeholder-white/20 focus:outline-none focus:border-blue-500/50 focus:bg-white/[0.06] transition-all w-full text-center";
   const config = Array.isArray(subathonConfig) ? subathonConfig : [];
+
+  const parseTimeInput = (val) => {
+    const parsed = parseInt(val, 10);
+    return isNaN(parsed) || parsed < 0 ? 0 : parsed;
+  };
 
   const getRemainingFromEnd = useCallback((et) => {
     if (!et) return 0;
@@ -90,26 +92,31 @@ export default function SubathonTab({
   const broadcastState = useCallback((overrides = {}) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       const payload = {
-        remaining: overrides.remaining ?? remaining,
-        isActive: overrides.isActive ?? isActive,
-        endTime: overrides.endTime ?? endTime,
-        title: subathonTitle,
+        remaining: overrides.remaining !== undefined ? overrides.remaining : remainingRef.current,
+        isActive: overrides.isActive !== undefined ? overrides.isActive : isActiveRef.current,
+        endTime: overrides.endTime !== undefined ? overrides.endTime : endTimeRef.current,
+        title: overrides.title !== undefined ? overrides.title : subathonTitleRef.current,
       };
-      console.log("Subathon [SYNC] dashboard->server:", payload);
       wsRef.current.send(JSON.stringify({
         type: "SUBATHON_SYNC",
         payload,
       }));
     }
-  }, [remaining, isActive, endTime, subathonTitle]);
+  }, []);
 
   const persistEndTime = useCallback(async (et) => {
     try {
       await axios.post(`${API_URL}/profile/${address}/subathon`, { subathon_end_time: et });
-    } catch {
-      // Non-fatal.
+    } catch (err) {
+      console.error(err);
     }
   }, [address]);
+
+  useEffect(() => {
+    if (!isActive) {
+      localStorage.setItem(`subathon_paused_${address}`, remaining.toString());
+    }
+  }, [remaining, isActive, address]);
 
   useEffect(() => {
     if (!address) return;
@@ -122,19 +129,26 @@ export default function SubathonTab({
         if (savedEnd && savedEnd > Date.now()) {
           setEndTime(savedEnd);
           setIsActive(true);
-          setRemaining(getRemainingFromEnd(savedEnd));
+          const r = getRemainingFromEnd(savedEnd);
+          setRemaining(r);
+          broadcastState({ isActive: true, endTime: savedEnd, remaining: r });
+        } else {
+          const r = parseInt(localStorage.getItem(`subathon_paused_${address}`) || "0", 10);
+          broadcastState({ isActive: false, endTime: null, remaining: r });
         }
-      }).catch(() => {});
+      }).catch((err) => {
+        console.error(err);
+      });
     };
 
     ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
-        if (data.type === "VERIFIED_DONATION" && isActive) {
+        if (data.type === "VERIFIED_DONATION" && isActiveRef.current) {
           const ethAmount = parseFloat(data.payload?.amount
             ? (BigInt(data.payload.amount) / BigInt("1000000000000000000")).toString()
             : "0");
-          const pricePerSec = mediaPricePerSecond ?? 0.0005;
+          const pricePerSec = mediaPricePerSecondRef.current ?? 0.0005;
           if (pricePerSec > 0 && ethAmount > 0) {
             const added = Math.floor(ethAmount / pricePerSec);
             if (added > 0) {
@@ -148,14 +162,13 @@ export default function SubathonTab({
             }
           }
         }
-      } catch {
-        // Non-fatal.
+      } catch (err) {
+        console.error(err);
       }
     };
 
     return () => ws.close();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [address]);
+  }, [address, getRemainingFromEnd, broadcastState, persistEndTime]);
 
   useEffect(() => {
     clearInterval(tickRef.current);
@@ -172,322 +185,294 @@ export default function SubathonTab({
     return () => clearInterval(tickRef.current);
   }, [isActive, endTime, getRemainingFromEnd]);
 
-  const handleStart = () => {
-    if (remaining <= 0 && !endTime) return;
-    const target = Date.now() + remaining * 1000;
+  const handleStart = useCallback(() => {
+    if (remainingRef.current <= 0 && !endTimeRef.current) return;
+    const target = Date.now() + remainingRef.current * 1000;
     setEndTime(target);
     setIsActive(true);
     persistEndTime(target);
-    broadcastState({ isActive: true, endTime: target, remaining });
-  };
+    broadcastState({ isActive: true, endTime: target, remaining: remainingRef.current });
+  }, [persistEndTime, broadcastState]);
 
-  const handlePause = () => {
+  const handlePause = useCallback(() => {
     setIsActive(false);
     setEndTime(null);
     persistEndTime(null);
     broadcastState({ isActive: false, endTime: null });
-  };
+  }, [persistEndTime, broadcastState]);
 
-  const handleReset = () => {
+  const handleReset = useCallback(() => {
     setIsActive(false);
     setEndTime(null);
     setRemaining(0);
     persistEndTime(null);
     broadcastState({ isActive: false, endTime: null, remaining: 0 });
-  };
+  }, [persistEndTime, broadcastState]);
 
-  const handleSetTime = (seconds) => {
+  const applySetTime = useCallback(() => {
+    const totalSecs = (setDays * 86400) + (setHours * 3600) + (setMinutes * 60) + setSeconds;
     const now = Date.now();
-    setRemaining(seconds);
-    if (isActive) {
-      const target = now + seconds * 1000;
+    setRemaining(totalSecs);
+    if (isActiveRef.current) {
+      const target = now + totalSecs * 1000;
       setEndTime(target);
       persistEndTime(target);
-      broadcastState({ endTime: target, remaining: seconds });
-    }
-  };
-
-  const handleAddTime = (seconds) => {
-    const now = Date.now();
-    const next = remaining + seconds;
-    setRemaining(next);
-    if (isActive && endTime) {
-      const target = (endTime > now ? endTime : now) + seconds * 1000;
-      setEndTime(target);
-      persistEndTime(target);
-      broadcastState({ endTime: target, remaining: getRemainingFromEnd(target) });
+      broadcastState({ endTime: target, remaining: totalSecs });
     } else {
-      setRemaining(next);
+      broadcastState({ isActive: false, endTime: null, remaining: totalSecs });
     }
-  };
+  }, [setDays, setHours, setMinutes, setSeconds, persistEndTime, broadcastState]);
 
-  const handleSyncObs = () => {
+  const handleSyncObs = useCallback(() => {
     broadcastState({});
     setSyncStatus("Synced to OBS");
     clearTimeout(syncTimerRef.current);
     syncTimerRef.current = setTimeout(() => setSyncStatus(""), 2000);
-  };
+  }, [broadcastState]);
 
-  const handleAddTemplate = () => {
-    const price = parseFloat(priceEth);
-    if (!priceEth || isNaN(price) || price <= 0) { setAddError("Enter a valid ETH price greater than 0."); return; }
-    if (durationSeconds <= 0) { setAddError("Duration must be greater than 0 seconds."); return; }
-    setAddError("");
+  const handleAddTemplate = useCallback(() => {
+    const price = parseFloat(rulePrice);
+    if (!rulePrice || isNaN(price) || price <= 0) return;
+    
+    const totalSecs = (ruleDays * 86400) + (ruleHours * 3600) + (ruleMinutes * 60) + ruleSeconds;
+    if (totalSecs <= 0) return;
+
     setSubathonConfig([...config, {
-      duration_seconds: durationSeconds,
+      duration_seconds: totalSecs,
       price_eth: price,
-      label: labelText.trim() || formatDuration(durationSeconds),
     }]);
-    setPriceEth("");
-    setLabelText("");
-    setDurationSeconds(60);
-  };
+    
+    setRulePrice("");
+    setRuleDays(0);
+    setRuleHours(0);
+    setRuleMinutes(0);
+    setRuleSeconds(0);
+  }, [rulePrice, ruleDays, ruleHours, ruleMinutes, ruleSeconds, config, setSubathonConfig]);
 
-  const handleRemoveTemplate = (index) => setSubathonConfig(config.filter((_, i) => i !== index));
+  const handleRemoveTemplate = useCallback((index) => {
+    setSubathonConfig(config.filter((_, i) => i !== index));
+  }, [config, setSubathonConfig]);
 
   const timerColor = remaining <= 60 ? "#f87171" : remaining <= 300 ? "#fbbf24" : "#34d399";
 
   return (
-    <div className="space-y-6 fade-in">
-      <div>
-        <h2 className="text-2xl font-extrabold text-white tracking-tight">Subathon Timer</h2>
-        <p className="text-white/40 text-sm mt-1">Live countdown timer that extends as viewers donate.</p>
+    <div className="space-y-8 fade-in">
+      <div className="flex items-end justify-between">
+        <div>
+          <h2 className="text-3xl font-black text-white tracking-tight drop-shadow-md">Subathon Timer</h2>
+          <p className="text-white/40 text-sm mt-2 font-medium">Live countdown timer that extends automatically as viewers tip.</p>
+        </div>
       </div>
 
-      <div className={`${glass} p-6 space-y-5`}>
-        <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
-          <h3 className="text-xs font-bold text-blue-400 uppercase tracking-widest">Live Timer</h3>
-          <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${isActive ? "bg-green-400 animate-pulse" : "bg-white/20"}`} />
-            <span className="text-[10px] font-bold text-white/40 uppercase tracking-wider">
+      <div className={`${glass} p-8 space-y-6 relative overflow-hidden group`}>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none" />
+        
+        <div className="flex items-center justify-between border-b border-white/10 pb-4 relative z-10">
+          <h3 className="text-sm font-bold text-blue-400 uppercase tracking-widest flex items-center gap-2">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+            Live Timer Control
+          </h3>
+          <div className="flex items-center gap-2 bg-black/40 px-3 py-1.5 rounded-lg border border-white/5">
+            <span className={`w-2 h-2 rounded-full ${isActive ? "bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]" : "bg-white/20"}`} />
+            <span className={`text-[10px] font-black uppercase tracking-wider ${isActive ? "text-emerald-400" : "text-white/40"}`}>
               {isActive ? "Running" : "Paused"}
             </span>
           </div>
         </div>
 
-        <input
-          type="text"
-          value={subathonTitle}
-          onChange={(e) => setSubathonTitle(e.target.value)}
-          className={`${glassInput} text-center font-bold`}
-          placeholder="Subathon title..."
-        />
+        <div className="relative z-10">
+          <input
+            type="text"
+            value={subathonTitle}
+            onChange={(e) => {
+              setSubathonTitle(e.target.value);
+              broadcastState({ title: e.target.value });
+            }}
+            className={`${glassInput} font-bold text-lg tracking-wide focus:border-blue-500/50`}
+            placeholder="Subathon title..."
+          />
+        </div>
 
-        <div
-          className="text-center py-6 rounded-2xl border border-white/[0.06] bg-black/20"
-          style={{ fontFamily: "'Courier New', monospace" }}
-        >
+        <div className="text-center py-8 rounded-2xl border border-white/5 bg-black/40 shadow-inner relative z-10" style={{ fontFamily: "'Courier New', monospace" }}>
           <div
-            className="text-7xl font-black tracking-widest tabular-nums transition-colors duration-500"
-            style={{ color: timerColor, textShadow: `0 0 30px ${timerColor}55` }}
+            className="text-6xl md:text-8xl font-black tracking-widest tabular-nums transition-colors duration-500 drop-shadow-lg"
+            style={{ color: timerColor, textShadow: `0 0 40px ${timerColor}40` }}
           >
             {formatClock(remaining)}
           </div>
-          <p className="text-xs text-white/20 mt-2 font-semibold uppercase tracking-widest">
+          <p className="text-xs text-white/30 mt-4 font-bold uppercase tracking-widest bg-white/5 inline-block px-4 py-1.5 rounded-full">
             {isActive && endTime ? `Ends at ${new Date(endTime).toLocaleTimeString()}` : "Timer inactive"}
           </p>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-col sm:flex-row gap-3 relative z-10">
           {!isActive ? (
-            <button
-              type="button"
-              onClick={handleStart}
-              disabled={remaining <= 0}
-              className="flex-1 py-3 rounded-xl bg-green-600/20 border border-green-500/30 text-green-300 font-bold text-sm hover:bg-green-600/30 transition-all cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed"
+            <ActionButton 
+              onClick={handleStart} 
+              disabled={remaining <= 0} 
+              className="flex-1 bg-emerald-600 hover:bg-emerald-500 border-emerald-500/50 shadow-[0_0_15px_rgba(16,185,129,0.2)]"
+              icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>}
             >
               Start
-            </button>
+            </ActionButton>
           ) : (
-            <button
-              type="button"
-              onClick={handlePause}
-              className="flex-1 py-3 rounded-xl bg-yellow-600/20 border border-yellow-500/30 text-yellow-300 font-bold text-sm hover:bg-yellow-600/30 transition-all cursor-pointer"
+            <ActionButton 
+              onClick={handlePause} 
+              className="flex-1 bg-amber-600 hover:bg-amber-500 border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.2)] text-white"
+              icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg>}
             >
               Pause
-            </button>
+            </ActionButton>
           )}
-          <button
-            type="button"
-            onClick={handleReset}
-            className="flex-1 py-3 rounded-xl bg-red-600/10 border border-red-500/20 text-red-400 font-bold text-sm hover:bg-red-600/20 transition-all cursor-pointer"
+          
+          <ActionButton 
+            onClick={handleReset} 
+            variant="danger" 
+            className="flex-1"
+            icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>}
           >
             Reset
-          </button>
-          <button
-            type="button"
-            onClick={handleSyncObs}
-            className={`flex-1 py-3 rounded-xl border font-bold text-sm transition-all cursor-pointer ${
-              syncStatus
-                ? "bg-green-600/20 border-green-500/30 text-green-300"
-                : "bg-blue-600/10 border-blue-500/20 text-blue-300 hover:bg-blue-600/20"
-            }`}
+          </ActionButton>
+          
+          <ActionButton 
+            onClick={handleSyncObs} 
+            variant="ghost" 
+            className={`flex-1 ${syncStatus ? "bg-blue-600/20 text-blue-400 border-blue-500/50" : ""}`}
+            icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>}
           >
             {syncStatus || "Sync OBS"}
-          </button>
+          </ActionButton>
         </div>
 
-        <div>
-          <label className="block text-xs font-bold text-white/40 uppercase tracking-wider mb-3">Set Timer</label>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {DURATION_PRESETS.map((p) => (
-              <button
-                key={p.seconds}
-                type="button"
-                onClick={() => handleSetTime(p.seconds)}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border bg-white/[0.03] border-white/10 text-white/40 hover:bg-white/[0.06] hover:text-white/80"
-              >
-                {p.label}
-              </button>
-            ))}
+        <div className="pt-6 relative z-10 border-t border-white/10 mt-6">
+          <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-4">Set Exact Timer</label>
+          <div className="grid grid-cols-4 gap-4 items-end mb-4">
+             <div>
+               <p className="text-[10px] text-white/30 uppercase font-bold mb-1 text-center">Days</p>
+               <input type="number" min="0" value={setDays || ""} onChange={(e) => setSetDays(parseTimeInput(e.target.value))} className={`${glassInput} py-2 font-bold`} placeholder="0" />
+             </div>
+             <div>
+               <p className="text-[10px] text-white/30 uppercase font-bold mb-1 text-center">Hrs</p>
+               <input type="number" min="0" max="23" value={setHours || ""} onChange={(e) => setSetHours(parseTimeInput(e.target.value))} className={`${glassInput} py-2 font-bold`} placeholder="0" />
+             </div>
+             <div>
+               <p className="text-[10px] text-white/30 uppercase font-bold mb-1 text-center">Min</p>
+               <input type="number" min="0" max="59" value={setMinutes || ""} onChange={(e) => setSetMinutes(parseTimeInput(e.target.value))} className={`${glassInput} py-2 font-bold`} placeholder="0" />
+             </div>
+             <div>
+               <p className="text-[10px] text-white/30 uppercase font-bold mb-1 text-center">Sec</p>
+               <input type="number" min="0" max="59" value={setSeconds || ""} onChange={(e) => setSetSeconds(parseTimeInput(e.target.value))} className={`${glassInput} py-2 font-bold`} placeholder="0" />
+             </div>
           </div>
-        </div>
-
-        <div>
-          <label className="block text-xs font-bold text-white/40 uppercase tracking-wider mb-3">Add Time</label>
-          <div className="flex items-center gap-2 flex-wrap">
-            {ADD_PRESETS.map((p) => (
-              <button
-                key={p.seconds}
-                type="button"
-                onClick={() => handleAddTime(p.seconds)}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border bg-blue-600/10 border-blue-500/20 text-blue-300 hover:bg-blue-600/20"
-              >
-                {p.label}
-              </button>
-            ))}
-            <div className="flex items-center gap-2 ml-auto">
-              <input
-                type="number"
-                min="1"
-                value={manualAddSeconds || ""}
-                onChange={(e) => setManualAddSeconds(parseInt(e.target.value) || 0)}
-                className={`${glassInput} w-28 text-center`}
-                placeholder="Sec"
-              />
-              <button
-                type="button"
-                onClick={() => { if (manualAddSeconds > 0) handleAddTime(manualAddSeconds); }}
-                className="px-4 py-2.5 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-300 font-bold text-sm hover:bg-blue-600/30 transition-all cursor-pointer whitespace-nowrap"
-              >
-                Add
-              </button>
-            </div>
-          </div>
+          <ActionButton onClick={applySetTime} variant="primary" className="w-full">
+            Apply Time
+          </ActionButton>
         </div>
       </div>
 
-      <div className={`${glass} p-6 space-y-5`}>
-        <h3 className="text-xs font-bold text-blue-400 uppercase tracking-widest border-b border-white/[0.06] pb-3">
-          Donation-Triggered Time Templates
+      <div className={`${glass} p-8 space-y-6 relative overflow-hidden group`}>
+        <div className="absolute top-0 left-0 w-64 h-64 bg-emerald-500/5 rounded-full blur-3xl -ml-20 -mt-20 pointer-events-none" />
+        
+        <h3 className="text-sm font-bold text-emerald-400 uppercase tracking-widest border-b border-white/10 pb-4 relative z-10 flex items-center gap-2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+          </svg>
+          Automation Rules
         </h3>
-        <p className="text-xs text-white/30">When a donation meeting the price threshold is received, this many seconds are added automatically.</p>
+        <p className="text-xs text-white/40 font-medium relative z-10 mb-6">Define rules to automatically extend the timer when a specific ETH amount is received.</p>
 
-        <div>
-          <label className="block text-xs font-bold text-white/40 uppercase tracking-wider mb-3">Duration</label>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {DURATION_PRESETS.map((preset) => (
-              <button
-                key={preset.seconds}
-                type="button"
-                onClick={() => setDurationSeconds(preset.seconds)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
-                  durationSeconds === preset.seconds
-                    ? "bg-blue-600/20 border-blue-500/50 text-white"
-                    : "bg-white/[0.03] border-white/10 text-white/40 hover:bg-white/[0.06] hover:text-white/70"
-                }`}
-              >
-                {preset.label}
-              </button>
-            ))}
+        <div className="grid grid-cols-12 gap-4 items-end relative z-10 mb-6 bg-black/20 p-5 rounded-xl border border-white/5">
+          <div className="col-span-12 md:col-span-4">
+             <label className="block text-xs font-bold text-white/50 uppercase tracking-wider mb-2">Price (ETH)</label>
+             <input type="number" step="0.0001" min="0.0001" value={rulePrice} onChange={(e) => setRulePrice(e.target.value)} className={`${glassInput} text-left focus:border-emerald-500/50`} placeholder="0.01" />
           </div>
-          <input
-            type="number"
-            min="1"
-            value={durationSeconds}
-            onChange={(e) => setDurationSeconds(parseInt(e.target.value) || 1)}
-            className={glassInput}
-            placeholder="Duration in seconds"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Price (ETH)</label>
-            <input
-              type="number"
-              step="0.0001"
-              min="0.0001"
-              value={priceEth}
-              onChange={(e) => setPriceEth(e.target.value)}
-              className={glassInput}
-              placeholder="0.001"
-            />
+          <div className="col-span-12 md:col-span-1 flex items-center justify-center h-10">
+             <span className="text-white/30 font-bold">=</span>
           </div>
-          <div>
-            <label className="block text-xs font-bold text-white/40 uppercase tracking-wider mb-2">Label (optional)</label>
-            <input
-              type="text"
-              value={labelText}
-              onChange={(e) => setLabelText(e.target.value)}
-              className={glassInput}
-              placeholder="e.g. 1 Minute"
-              maxLength={40}
-            />
+          <div className="col-span-12 md:col-span-7 grid grid-cols-4 gap-2">
+             <div>
+               <p className="text-[10px] text-white/30 uppercase font-bold mb-1 text-center">Days</p>
+               <input type="number" min="0" value={ruleDays || ""} onChange={(e) => setRuleDays(parseTimeInput(e.target.value))} className={`${glassInput} py-2 font-bold focus:border-emerald-500/50`} placeholder="0" />
+             </div>
+             <div>
+               <p className="text-[10px] text-white/30 uppercase font-bold mb-1 text-center">Hrs</p>
+               <input type="number" min="0" max="23" value={ruleHours || ""} onChange={(e) => setRuleHours(parseTimeInput(e.target.value))} className={`${glassInput} py-2 font-bold focus:border-emerald-500/50`} placeholder="0" />
+             </div>
+             <div>
+               <p className="text-[10px] text-white/30 uppercase font-bold mb-1 text-center">Min</p>
+               <input type="number" min="0" max="59" value={ruleMinutes || ""} onChange={(e) => setRuleMinutes(parseTimeInput(e.target.value))} className={`${glassInput} py-2 font-bold focus:border-emerald-500/50`} placeholder="0" />
+             </div>
+             <div>
+               <p className="text-[10px] text-white/30 uppercase font-bold mb-1 text-center">Sec</p>
+               <input type="number" min="0" max="59" value={ruleSeconds || ""} onChange={(e) => setRuleSeconds(parseTimeInput(e.target.value))} className={`${glassInput} py-2 font-bold focus:border-emerald-500/50`} placeholder="0" />
+             </div>
+          </div>
+          <div className="col-span-12 mt-4">
+             <ActionButton onClick={handleAddTemplate} variant="ghost" className="w-full text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/10 hover:border-emerald-500/50">
+               Add Rule
+             </ActionButton>
           </div>
         </div>
-
-        {addError && <p className="text-red-400 text-xs font-semibold">{addError}</p>}
-
-        <button
-          type="button"
-          onClick={handleAddTemplate}
-          className="w-full py-2.5 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-300 font-bold text-sm hover:bg-blue-600/30 transition-all cursor-pointer"
-        >
-          Add Template
-        </button>
 
         {config.length > 0 && (
-          <div className={`${glass} overflow-hidden`}>
-            <div className="divide-y divide-white/[0.04]">
-              {config.map((item, i) => (
-                <div key={i} className="px-5 py-3.5 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-blue-400 bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-lg">
-                      {item.label || formatDuration(item.duration_seconds)}
-                    </span>
-                    <p className="text-xs text-white/40">{item.duration_seconds}s</p>
+          <div className="mt-8 border border-white/10 rounded-xl overflow-hidden bg-black/40 relative z-10">
+            <div className="grid grid-cols-12 px-5 py-3 border-b border-white/10 bg-white/5 text-[10px] font-black text-white/30 uppercase tracking-widest">
+               <div className="col-span-3">Donation</div>
+               <div className="col-span-1 text-center">=</div>
+               <div className="col-span-6">Time Added</div>
+               <div className="col-span-2 text-right">Action</div>
+            </div>
+            <div className="divide-y divide-white/5">
+              {config.map((item, i) => {
+                 const d = Math.floor(item.duration_seconds / 86400);
+                 const h = Math.floor((item.duration_seconds % 86400) / 3600);
+                 const m = Math.floor((item.duration_seconds % 3600) / 60);
+                 const s = item.duration_seconds % 60;
+                 return (
+                  <div key={i} className="grid grid-cols-12 px-5 py-4 items-center hover:bg-white/[0.03] transition-colors">
+                    <div className="col-span-3">
+                      <span className="text-sm font-black text-white">{item.price_eth} <span className="text-[10px] text-white/40 font-bold ml-1">ETH</span></span>
+                    </div>
+                    <div className="col-span-1 text-center">
+                      <span className="text-white/20 font-bold">=</span>
+                    </div>
+                    <div className="col-span-6 flex gap-3 text-xs font-bold text-emerald-400">
+                      {d > 0 && <span>{d}d</span>}
+                      {h > 0 && <span>{h}h</span>}
+                      {m > 0 && <span>{m}m</span>}
+                      {(s > 0 || item.duration_seconds === 0) && <span>{s}s</span>}
+                    </div>
+                    <div className="col-span-2 flex justify-end">
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTemplate(i)}
+                        className="w-8 h-8 flex items-center justify-center rounded-lg bg-rose-500/10 text-rose-400 hover:bg-rose-500 hover:text-white transition-all cursor-pointer border border-rose-500/20"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                        </svg>
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-5">
-                    <p className="text-sm font-extrabold text-white">{item.price_eth} ETH</p>
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveTemplate(i)}
-                      className="text-white/20 hover:text-red-400 transition-colors cursor-pointer"
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <polyline points="3 6 5 6 21 6"></polyline>
-                        <path d="M19 6l-1 14H6L5 6"></path>
-                        <path d="M10 11v6"></path><path d="M14 11v6"></path>
-                        <path d="M9 6V4h6v2"></path>
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={handleSaveProfile}
-        disabled={loading}
-        className="w-full py-3 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-300 font-bold text-sm hover:bg-blue-600/30 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        {loading ? "Saving..." : "Save Subathon Settings"}
-      </button>
+      <div className="flex justify-end pt-4 pb-8">
+        <ActionButton 
+          onClick={handleSaveProfile} 
+          disabled={loading} 
+          variant="primary"
+          icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>}
+        >
+          {loading ? "Saving Settings..." : "Save Subathon Settings"}
+        </ActionButton>
+      </div>
     </div>
   );
 }
