@@ -71,7 +71,7 @@ const AlertCard = ({ alert, phase, onMediaEnd }) => {
   const template = profile?.alert_template || "classic";
   const ethAmount = amount ? ethers.formatEther(amount) : "0";
   const youtubeId = extractYoutubeId(alert.media_data?.youtube_url || alert.youtube_url || alert.media_url);
-  const youtubeStart = alert.media_data?.youtube_start || alert.youtube_start || 0;
+  const youtubeStart = alert.media_start ?? alert.media_data?.youtube_start ?? alert.youtube_start ?? 0;
   const vnSrc = alert.media_data?.vn_data || alert.vn_data || alert.vn_url || alert.media_data?.vn_url || null;
 
   const animClass = phase === "enter" ? "alert-enter" : phase === "exit" ? "alert-exit" : "";
@@ -98,7 +98,7 @@ const AlertCard = ({ alert, phase, onMediaEnd }) => {
           <iframe
             width="100%"
             height="225"
-            src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&loop=1&playlist=${youtubeId}&start=${youtubeStart}`}
+          src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&start=${youtubeStart}&loop=1&playlist=${youtubeId}`}
             allow="autoplay; encrypted-media"
             allowFullScreen
             title="Media Share"
@@ -250,14 +250,13 @@ export default function AlertOverlay() {
       setPhase("enter");
 
       const hasVn = !!(next.media_data?.vn_data || next.vn_data || next.vn_url || next.media_data?.vn_url);
-      const hasYoutube = !!(next.media_data?.youtube_url || next.youtube_url || next.media_url);
 
       if (hasVn) {
         return;
       }
 
-      const durationSec = next.media_data?.duration || next.duration || null;
-      const displayTime = durationSec ? durationSec * 1000 : (hasYoutube ? 15000 : 5000);
+      const durationSec = next.media_duration || next.media_data?.duration || 5;
+      const displayTime = durationSec * 1000;
       dismissTimerRef.current = setTimeout(triggerDismiss, displayTime);
     };
   });

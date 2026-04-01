@@ -35,6 +35,8 @@ const getHistory = async (req, res) => {
       youtube_url: r.media_type === "youtube" ? (r.media_url || null) : null,
       tiktok_url: r.media_type === "tiktok" ? (r.media_url || null) : null,
       vn_data: r.vn_url || null,
+      media_start: r.media_start || 0,
+      media_duration: r.media_duration || 5,
     }));
 
     res.json(history);
@@ -93,6 +95,8 @@ const replayAlert = async (req, res) => {
               youtube_url: historyRecord.media_type === "youtube" ? (historyRecord.media_url || null) : null,
               tiktok_url: historyRecord.media_type === "tiktok" ? (historyRecord.media_url || null) : null,
               vn_data: historyRecord.vn_url || null,
+              media_start: historyRecord.media_start || 0,
+              media_duration: historyRecord.media_duration || 5,
             }
           }));
         }

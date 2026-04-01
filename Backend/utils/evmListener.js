@@ -61,6 +61,8 @@ const handleEvent = async (donor, streamer, amount, message, donationToken, wss)
       media_type: mediaPayload.media_type || "none",
       media_url: mediaPayload.media_link || null,
       vn_url: mediaPayload.vn_data || null,
+      media_start: parseInt(mediaPayload.youtube_start) || 0,
+      media_duration: parseInt(mediaPayload.duration) || 5,
     });
 
     console.log(`Donation [SAVED] | ${donor} -> ${streamer} | ${ethAmount} ETH`);
@@ -95,14 +97,14 @@ const handleEvent = async (donor, streamer, amount, message, donationToken, wss)
       media_type: mediaPayload.media_type || "none",
       media_url: mediaPayload.media_link || null,
       vn_data: mediaPayload.vn_data || null,
-      duration: mediaPayload.duration || null,
-      youtube_start: mediaPayload.youtube_start || 0,
+      media_start: parseInt(mediaPayload.youtube_start) || 0,
+      media_duration: parseInt(mediaPayload.duration) || 5,
       media_data: {
         media_type: mediaPayload.media_type || "none",
         media_link: mediaPayload.media_link || null,
         youtube_url: mediaPayload.media_link || null,
-        youtube_start: mediaPayload.youtube_start || 0,
-        duration: mediaPayload.duration || null,
+        youtube_start: parseInt(mediaPayload.youtube_start) || 0,
+        duration: parseInt(mediaPayload.duration) || 5,
         vn_data: mediaPayload.vn_data || null,
         vn_url: mediaPayload.vn_url || null,
       },

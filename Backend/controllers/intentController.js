@@ -69,7 +69,9 @@ const createIntent = async (req, res) => {
     if (duration !== null) {
       resolvedMedia.duration = duration;
     }
-    resolvedMedia.youtube_start = parseInt(youtube_start) || 0;
+    if (youtube_start !== undefined) {
+      resolvedMedia.youtube_start = parseInt(youtube_start) || 0;
+    }
 
     const payload = {
       donor_address: donor_address.toLowerCase(),

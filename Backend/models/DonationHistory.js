@@ -47,6 +47,16 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TEXT,
       allowNull: true,
     },
+    media_start: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 0,
+    },
+    media_duration: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      defaultValue: 5,
+    },
     created_at: {
       type: DataTypes.DATE,
       allowNull: true,

@@ -166,9 +166,9 @@ export default function PublicProfile() {
       let vnBase64 = null;
 
       if (selectedMedia === "youtube" && mediaLink) {
-        mediaData = { youtube_url: mediaLink, youtube_start: youtubeStart };
+        mediaData = { media_type: "youtube", media_link: mediaLink, youtube_start: parseInt(youtubeStart) || 0 };
       } else if (selectedMedia === "tiktok" && mediaLink) {
-        mediaData = { tiktok_url: mediaLink };
+        mediaData = { media_type: "tiktok", media_link: mediaLink };
       } else if (selectedMedia === "vn" && vnBlob) {
         vnBase64 = await new Promise((resolve, reject) => {
           const reader = new FileReader();
@@ -187,7 +187,8 @@ export default function PublicProfile() {
         donorName: donorName,
         isAnonymous: isAnonymous,
         selectedMedia: selectedMedia,
-        mediaLink: selectedMedia === "youtube" ? mediaLink : (selectedMedia === "tiktok" ? mediaLink : null),
+        mediaLink: selectedMedia === "youtube" || selectedMedia === "tiktok" ? mediaLink : null,
+        youtube_start: selectedMedia === "youtube" ? parseInt(youtubeStart) || 0 : 0,
         media_data: mediaData,
       });
       const donationToken = intentRes.data.token;
