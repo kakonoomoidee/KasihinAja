@@ -1,5 +1,5 @@
 const express = require("express");
-const { getProfile, updateProfile, getStats, resetMilestone, testAlert } = require("../controllers/profileController");
+const { getProfile, updateProfile, getStats, resetMilestone, testAlert, banDonor } = require("../controllers/profileController");
 const { getHistory, replayAlert } = require("../controllers/historyController");
 const { createIntent } = require("../controllers/intentController");
 
@@ -13,5 +13,6 @@ router.post("/test-alert/:address", testAlert);
 router.post("/profile/:address/reset-milestone", resetMilestone);
 router.post("/replay-alert/:id", replayAlert);
 router.post("/donation-intent", createIntent);
+router.post("/profile/:address/ban", banDonor);
 
 module.exports = router;

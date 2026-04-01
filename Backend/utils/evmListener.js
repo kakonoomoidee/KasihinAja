@@ -23,7 +23,9 @@ const handleEvent = async (donor, streamer, amount, message, donationToken, wss)
 
     let customBlacklist = [];
     if (profile && profile.custom_blacklist) {
-      try { customBlacklist = JSON.parse(profile.custom_blacklist); } catch { customBlacklist = []; }
+      customBlacklist = Array.isArray(profile.custom_blacklist)
+        ? profile.custom_blacklist
+        : [];
     }
 
     const cleanMessage = filterMessage(message, customBlacklist);
@@ -87,30 +89,56 @@ const handleEvent = async (donor, streamer, amount, message, donationToken, wss)
       });
     }
 
-    const broadcastPayload = {
-      donor,
-      donor_name: donorName,
-      streamer,
-      amount: amountWeiString,
-      message: cleanMessage,
-      profile: profile ? profile.toJSON() : null,
-      media_type: mediaPayload.media_type || "none",
-      media_url: mediaPayload.media_link || null,
-      vn_data: mediaPayload.vn_data || null,
-      media_start: parseInt(mediaPayload.youtube_start) || 0,
-      media_duration: parseInt(mediaPayload.duration) || 5,
-      media_data: {
-        media_type: mediaPayload.media_type || "none",
-        media_link: mediaPayload.media_link || null,
-        youtube_url: mediaPayload.media_link || null,
-        youtube_start: parseInt(mediaPayload.youtube_start) || 0,
-        duration: parseInt(mediaPayload.duration) || 5,
-        vn_data: mediaPayload.vn_data || null,
-        vn_url: mediaPayload.vn_url || null,
-      },
-    };
+    const bannedKeys = Array.isArray(profile?.banned_keys) ? profile.banned_keys : [];
+    const isBanned = bannedKeys.includes(donor.toLowerCase());
 
-    console.log("[DEBUG 4] Broadcasting VERIFIED_DONATION payload:", JSON.stringify({ donor_name: broadcastPayload.donor_name, media_type: broadcastPayload.media_type, media_url: broadcastPayload.media_url, vn_data: broadcastPayload.vn_data ? "[BASE64_PRESENT]" : null }));
+    const broadcastPayload = isBanned
+      ? {
+          donor,
+          donor_name: "BANNED USER",
+          streamer,
+          amount: amountWeiString,
+          message: "",
+          profile: profile ? profile.toJSON() : null,
+          media_type: "none",
+          media_url: null,
+          vn_data: null,
+          media_start: 0,
+          media_duration: 5,
+          media_data: {
+            media_type: "none",
+            media_link: null,
+            youtube_url: null,
+            youtube_start: 0,
+            duration: 5,
+            vn_data: null,
+            vn_url: null,
+          },
+        }
+      : {
+          donor,
+          donor_name: donorName,
+          streamer,
+          amount: amountWeiString,
+          message: cleanMessage,
+          profile: profile ? profile.toJSON() : null,
+          media_type: mediaPayload.media_type || "none",
+          media_url: mediaPayload.media_link || null,
+          vn_data: mediaPayload.vn_data || null,
+          media_start: parseInt(mediaPayload.youtube_start) || 0,
+          media_duration: parseInt(mediaPayload.duration) || 5,
+          media_data: {
+            media_type: mediaPayload.media_type || "none",
+            media_link: mediaPayload.media_link || null,
+            youtube_url: mediaPayload.media_link || null,
+            youtube_start: parseInt(mediaPayload.youtube_start) || 0,
+            duration: parseInt(mediaPayload.duration) || 5,
+            vn_data: mediaPayload.vn_data || null,
+            vn_url: mediaPayload.vn_url || null,
+          },
+        };
+
+    console.log(`Donation [BROADCAST] | banned=${isBanned} | room=${streamer.toLowerCase()}`);
 
     wss.clients.forEach((client) => {
       if (client.readyState === 1 && client.streamerRoom === streamer.toLowerCase()) {
@@ -120,8 +148,6 @@ const handleEvent = async (donor, streamer, amount, message, donationToken, wss)
         }));
       }
     });
-
-    console.log(`Donation [BROADCAST] | OBS notified for room=${streamer.toLowerCase()}`);
   } catch (error) {
     console.error("Event handler error:", error.message);
   }

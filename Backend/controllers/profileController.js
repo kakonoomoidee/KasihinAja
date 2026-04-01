@@ -62,13 +62,13 @@ const updateProfile = async (req, res) => {
         msg_color,
         user_color,
         bg_color,
-        custom_blacklist: custom_blacklist ? JSON.stringify(custom_blacklist) : "[]",
+        custom_blacklist: custom_blacklist || [],
         milestone_name: milestone_name || "",
         milestone_target: milestone_target || 0,
         enable_media_share: enable_media_share || false,
         enable_vn: enable_vn || false,
         alert_template: alert_template || "classic",
-        banned_keys: banned_keys ? JSON.stringify(banned_keys) : "[]",
+        banned_keys: banned_keys || [],
         media_price_per_second: media_price_per_second ?? 0.0005,
         vn_fixed_price: vn_fixed_price ?? 0.01,
       }
@@ -80,13 +80,13 @@ const updateProfile = async (req, res) => {
       if (msg_color !== undefined) profile.msg_color = msg_color;
       if (user_color !== undefined) profile.user_color = user_color;
       if (bg_color !== undefined) profile.bg_color = bg_color;
-      if (custom_blacklist !== undefined) profile.custom_blacklist = JSON.stringify(custom_blacklist);
+      if (custom_blacklist !== undefined) profile.custom_blacklist = custom_blacklist;
       if (milestone_name !== undefined) profile.milestone_name = milestone_name;
       if (milestone_target !== undefined) profile.milestone_target = milestone_target;
       if (enable_media_share !== undefined) profile.enable_media_share = enable_media_share;
       if (enable_vn !== undefined) profile.enable_vn = enable_vn;
       if (alert_template !== undefined) profile.alert_template = alert_template;
-      if (banned_keys !== undefined) profile.banned_keys = JSON.stringify(banned_keys);
+      if (banned_keys !== undefined) profile.banned_keys = banned_keys;
       if (media_price_per_second !== undefined) profile.media_price_per_second = media_price_per_second;
       if (vn_fixed_price !== undefined) profile.vn_fixed_price = vn_fixed_price;
       await profile.save();
@@ -234,10 +234,48 @@ const testAlert = async (req, res) => {
   }
 };
 
+/**
+ * Adds a donor address to the streamer's banned keys list.
+ *
+ * @param {object} req The Express request object.
+ * @param {object} res The Express response object.
+ * @returns {Promise<void>}
+ */
+const banDonor = async (req, res) => {
+  try {
+    const { address } = req.params;
+    const { donor_address } = req.body;
+
+    if (!donor_address) {
+      return res.status(400).json({ error: "Missing donor_address" });
+    }
+
+    const profile = await StreamerProfile.findByPk(address);
+    if (!profile) {
+      return res.status(404).json({ error: "Profile not found" });
+    }
+
+    const currentList = Array.isArray(profile.banned_keys) ? profile.banned_keys : [];
+    if (currentList.includes(donor_address.toLowerCase())) {
+      return res.json({ banned_keys: currentList });
+    }
+
+    const updated = [...currentList, donor_address.toLowerCase()];
+    profile.banned_keys = updated;
+    profile.changed("banned_keys", true);
+    await profile.save();
+
+    res.json({ banned_keys: updated });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
 module.exports = {
   getProfile,
   updateProfile,
   getStats,
   resetMilestone,
-  testAlert
+  testAlert,
+  banDonor,
 };

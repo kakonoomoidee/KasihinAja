@@ -110,11 +110,9 @@ export default function Dashboard() {
         setEnableVn(!!res.data.enable_vn);
         setMediaPricePerSecond(res.data.media_price_per_second ?? 0.0005);
         setVnFixedPrice(res.data.vn_fixed_price ?? 0.01);
-        let bl = [];
-        try { bl = JSON.parse(res.data.custom_blacklist || "[]"); } catch { bl = []; }
+        const bl = Array.isArray(res.data.custom_blacklist) ? res.data.custom_blacklist : [];
         setBlacklistText(bl.join(", "));
-        let bk = [];
-        try { bk = JSON.parse(res.data.banned_keys || "[]"); } catch { bk = []; }
+        const bk = Array.isArray(res.data.banned_keys) ? res.data.banned_keys : [];
         setBannedKeys(bk);
       }
       const statsRes = await axios.get(`${API_URL}/stats/${userAddress}`);
@@ -241,15 +239,21 @@ export default function Dashboard() {
   };
 
   /**
-   * Adds a donor public key to the banned list.
+   * Bans a donor by their public key, persisting the ban and removing them from local history.
    *
-   * @param {string} key The public key to ban.
-   * @returns {void}
+   * @param {string} key The donor address to ban.
+   * @returns {Promise<void>}
    */
-  const banKey = (key) => {
-    if (!bannedKeys.includes(key)) {
-      setBannedKeys([...bannedKeys, key]);
-      setStatus("Key queued for ban. Save to persist.");
+  const banKey = async (key) => {
+    if (bannedKeys.includes(key)) return;
+    try {
+      const res = await axios.post(`${API_URL}/profile/${address}/ban`, { donor_address: key });
+      setBannedKeys(res.data.banned_keys || [...bannedKeys, key]);
+      setHistory(prev => prev.filter(item => item.donor_address?.toLowerCase() !== key.toLowerCase()));
+      setStatus("Donor banned successfully.");
+      setTimeout(() => setStatus(""), 3000);
+    } catch {
+      setStatus("Failed to ban donor.");
       setTimeout(() => setStatus(""), 3000);
     }
   };

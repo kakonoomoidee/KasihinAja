@@ -33,9 +33,9 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
     },
     custom_blacklist: {
-      type: DataTypes.TEXT,
+      type: DataTypes.JSON,
       allowNull: true,
-      defaultValue: "[]"
+      defaultValue: []
     },
     milestone_name: {
       type: DataTypes.STRING(100),
@@ -68,9 +68,9 @@ module.exports = (sequelize, DataTypes) => {
       defaultValue: "classic"
     },
     banned_keys: {
-      type: DataTypes.TEXT,
-      allowNull: true,
-      defaultValue: "[]"
+      type: DataTypes.JSON,
+      allowNull: false,
+      defaultValue: []
     },
     media_price_per_second: {
       type: DataTypes.FLOAT,

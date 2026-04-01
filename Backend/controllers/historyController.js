@@ -1,3 +1,4 @@
+const { Op } = require("sequelize");
 const { ethers } = require("ethers");
 const { DonationHistory, StreamerProfile } = require("../models");
 
@@ -14,7 +15,7 @@ const verifySignature = (address, signature, payloadString) => {
 };
 
 /**
- * Retrieves the donation history for a specific streamer.
+ * Retrieves the donation history for a specific streamer, excluding banned donor addresses.
  *
  * @param {object} req The Express request object.
  * @param {object} res The Express response object.
@@ -23,8 +24,15 @@ const verifySignature = (address, signature, payloadString) => {
 const getHistory = async (req, res) => {
   try {
     const { address } = req.params;
+
+    const profile = await StreamerProfile.findByPk(address);
+    const bannedKeys = Array.isArray(profile?.banned_keys) ? profile.banned_keys : [];
+
     const rows = await DonationHistory.findAll({
-      where: { streamer_address: address },
+      where: {
+        streamer_address: address,
+        ...(bannedKeys.length > 0 && { donor_address: { [Op.notIn]: bannedKeys } }),
+      },
       order: [["created_at", "DESC"]]
     });
 

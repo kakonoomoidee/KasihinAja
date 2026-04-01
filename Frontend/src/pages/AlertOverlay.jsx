@@ -3,12 +3,6 @@ import { useParams } from "react-router-dom";
 import { WS_URL } from "../utils/config";
 import { ethers } from "ethers";
 
-/**
- * Extracts the YouTube video ID from standard, short, or embed URLs.
- *
- * @param {string} url The YouTube URL string.
- * @returns {string|null} The extracted video ID or null.
- */
 const extractYoutubeId = (url) => {
   if (!url) return null;
   const patterns = [
@@ -23,16 +17,15 @@ const extractYoutubeId = (url) => {
   return null;
 };
 
+const extractTiktokId = (url) => {
+  if (!url) return null;
+  const match = url.match(/video\/(\d+)/);
+  return match ? match[1] : null;
+};
+
 const VN_BAR_DELAYS = [0, 0.15, 0.3, 0.05, 0.25, 0.1, 0.4, 0.2, 0.35, 0.08, 0.45, 0.18];
 const VN_BAR_DURATIONS = [0.6, 0.8, 0.5, 0.9, 0.65, 0.75, 0.55, 0.85, 0.7, 0.6, 0.45, 0.8];
 
-/**
- * Renders an animated waveform bar visualizer for active voice note playback.
- *
- * @param {object} props Component props.
- * @param {string} props.color The hex or CSS color to apply to the bars.
- * @returns {React.ReactElement} The waveform visualizer element.
- */
 const VoiceNoteVisualizer = ({ color }) => {
   return (
     <div className="flex items-center justify-center gap-[3px] h-8 px-3 py-1 rounded-xl" style={{ background: "rgba(255,255,255,0.07)" }}>
@@ -54,15 +47,6 @@ const VoiceNoteVisualizer = ({ color }) => {
   );
 };
 
-/**
- * Renders the alert card with donor info, media, and voice note visualizer.
- *
- * @param {object} props Component props.
- * @param {object} props.alert The alert payload object.
- * @param {string} props.phase The current animation phase: "enter" | "exit" | "idle".
- * @param {Function} props.onMediaEnd Callback invoked when the voice note audio finishes.
- * @returns {React.ReactElement} The combined alert card element.
- */
 const AlertCard = ({ alert, phase, onMediaEnd }) => {
   const { profile, message, amount } = alert;
   const donorName = alert.donor_name || "Anonymous";
@@ -70,9 +54,18 @@ const AlertCard = ({ alert, phase, onMediaEnd }) => {
   const userColor = profile?.user_color || "#7dd3fc";
   const template = profile?.alert_template || "classic";
   const ethAmount = amount ? ethers.formatEther(amount) : "0";
-  const youtubeId = extractYoutubeId(alert.media_data?.youtube_url || alert.youtube_url || alert.media_url);
-  const youtubeStart = alert.media_start ?? alert.media_data?.youtube_start ?? alert.youtube_start ?? 0;
+  
+  const rawUrl = alert.media_data?.youtube_url || alert.youtube_url || alert.media_url || alert.media_data?.tiktok_url || alert.tiktok_url;
+  
+  const youtubeId = extractYoutubeId(rawUrl);
+  const tiktokId = extractTiktokId(rawUrl);
+  const isTiktok = !!tiktokId;
+  const hasVideo = youtubeId || isTiktok;
+  
+  const mediaStart = alert.media_start ?? alert.media_data?.youtube_start ?? alert.youtube_start ?? 0;
   const vnSrc = alert.media_data?.vn_data || alert.vn_data || alert.vn_url || alert.media_data?.vn_url || null;
+
+  const rawTiktokVideoUrl = tiktokId ? `https://tikwm.com/video/media/play/${tiktokId}.mp4` : null;
 
   const animClass = phase === "enter" ? "alert-enter" : phase === "exit" ? "alert-exit" : "";
 
@@ -86,24 +79,49 @@ const AlertCard = ({ alert, phase, onMediaEnd }) => {
 
   return (
     <div className={`flex flex-col items-center gap-0 max-w-lg w-full ${animClass}`}>
-      {youtubeId && (
+      {hasVideo && (
         <div
-          className="rounded-t-2xl overflow-hidden w-full"
+          className="rounded-t-2xl overflow-hidden w-full bg-black/90 flex justify-center items-center relative"
           style={{
             border: "1px solid rgba(255, 255, 255, 0.08)",
             borderBottom: "none",
             boxShadow: "0 -4px 24px rgba(0, 0, 0, 0.4)",
+            height: isTiktok ? "340px" : "225px" 
           }}
         >
-          <iframe
-            width="100%"
-            height="225"
-          src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&start=${youtubeStart}&loop=1&playlist=${youtubeId}`}
-            allow="autoplay; encrypted-media"
-            allowFullScreen
-            title="Media Share"
-            className="block"
-          />
+          {youtubeId && (
+            <iframe
+              width="100%"
+              height="100%"
+              src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&start=${mediaStart}&loop=1&playlist=${youtubeId}&controls=0&modestbranding=1`}
+              allow="autoplay; encrypted-media"
+              allowFullScreen
+              title="YouTube Media Share"
+              className="block"
+            />
+          )}
+          
+          {isTiktok && (
+            <video
+              src={rawTiktokVideoUrl}
+              autoPlay
+              loop
+              muted={false}
+              playsInline
+              controls={false}
+              className="w-full h-full object-contain"
+              onError={(e) => {
+                e.target.style.display = 'none';
+                e.target.nextSibling.style.display = 'flex';
+              }}
+            />
+          )}
+          {isTiktok && (
+            <div className="hidden absolute inset-0 flex-col items-center justify-center p-6 text-center bg-black/90">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-white/30 mb-2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+               <p className="text-sm font-bold text-white/50 mb-1">Failed to load direct TikTok video.</p>
+            </div>
+          )}
         </div>
       )}
 
@@ -111,8 +129,8 @@ const AlertCard = ({ alert, phase, onMediaEnd }) => {
         className="w-full p-5"
         style={{
           ...cardStyle,
-          borderRadius: youtubeId ? "0 0 18px 18px" : "18px",
-          borderTop: youtubeId ? "none" : undefined,
+          borderRadius: hasVideo ? "0 0 18px 18px" : "18px",
+          borderTop: hasVideo ? "none" : undefined,
         }}
       >
         {template === "minimalist" ? (
@@ -183,11 +201,6 @@ const AlertCard = ({ alert, phase, onMediaEnd }) => {
   );
 };
 
-/**
- * Renders the OBS alert overlay with queued, animated alert display.
- *
- * @returns {React.ReactElement} The overlay root element.
- */
 export default function AlertOverlay() {
   const { streamerAddress } = useParams();
   const [currentAlert, setCurrentAlert] = useState(null);
@@ -274,7 +287,6 @@ export default function AlertOverlay() {
         try {
           const data = JSON.parse(event.data);
           if (data.type === "VERIFIED_DONATION") {
-            console.log("[DEBUG 5] Received Alert Payload:", data.payload);
             const donation = data.payload;
             donation.id = Date.now().toString() + Math.random();
             queueRef.current.push(donation);
