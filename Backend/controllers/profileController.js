@@ -271,6 +271,29 @@ const banDonor = async (req, res) => {
   }
 };
 
+/**
+ * Persists the subathon end timestamp to the streamer profile for restart-safe recovery.
+ *
+ * @param {object} req The Express request object. Expects body.subathon_end_time (BIGINT ms or null).
+ * @param {object} res The Express response object.
+ * @returns {Promise<void>}
+ */
+const updateSubathonEndTime = async (req, res) => {
+  try {
+    const { address } = req.params;
+    const { subathon_end_time } = req.body;
+    const [profile] = await StreamerProfile.findOrCreate({
+      where: { wallet_address: address },
+      defaults: {},
+    });
+    profile.subathon_end_time = subathon_end_time ?? null;
+    await profile.save();
+    res.json({ subathon_end_time: profile.subathon_end_time });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
+  }
+};
+
 module.exports = {
   getProfile,
   updateProfile,
@@ -278,4 +301,5 @@ module.exports = {
   resetMilestone,
   testAlert,
   banDonor,
+  updateSubathonEndTime,
 };

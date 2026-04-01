@@ -5,6 +5,8 @@ import PublicProfile from "./pages/PublicProfile";
 import Dashboard from "./pages/Dashboard";
 import AlertOverlay from "./pages/AlertOverlay";
 import MilestoneOverlay from "./pages/MilestoneOverlay";
+import LeaderboardOverlay from "./pages/LeaderboardOverlay";
+import SubathonOverlay from "./pages/SubathonOverlay";
 
 /**
  * Top-level application router mounting distinct modes seamlessly.
@@ -21,6 +23,8 @@ export default function App() {
         <Route path="/overlay/alert/:streamerAddress" element={<AlertOverlay />} />
         <Route path="/overlay/milestone/:streamerAddress" element={<MilestoneOverlay />} />
         <Route path="/overlay/:streamerAddress" element={<AlertOverlay />} />
+        <Route path="/leaderboard-overlay/:streamerAddress" element={<LeaderboardOverlay />} />
+        <Route path="/subathon-overlay/:streamerAddress" element={<SubathonOverlay />} />
         <Route path="/:streamerAddress" element={<PublicProfile />} />
       </Routes>
     </Router>

@@ -82,6 +82,16 @@ module.exports = (sequelize, DataTypes) => {
       allowNull: true,
       defaultValue: 0.01,
     },
+    subathon_config: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+    },
+    subathon_end_time: {
+      type: DataTypes.BIGINT,
+      allowNull: true,
+      defaultValue: null,
+    },
   }, {
     tableName: "streamer_profiles",
     timestamps: false,

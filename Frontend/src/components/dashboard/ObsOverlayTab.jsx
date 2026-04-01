@@ -167,6 +167,31 @@ export default function ObsOverlayTab({
             </ActionButton>
           </div>
         </div>
+
+        <div className={`${glass} p-8`}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-xs font-bold text-blue-400 uppercase tracking-wider">Subathon Timer Overlay URL</h3>
+          </div>
+          <div className="flex items-center gap-3">
+            <input
+              type="text"
+              readOnly
+              value={`${window.location.origin}/subathon-overlay/${address}`}
+              className={`flex-1 ${glassInput} text-xs font-mono text-white/70 py-3`}
+            />
+            <ActionButton
+              onClick={() => copyToClipboard(`${window.location.origin}/subathon-overlay/${address}`)}
+              variant="primary"
+              icon={
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+              }
+            >
+              Copy
+            </ActionButton>
+          </div>
+        </div>
       </div>
 
       <form onSubmit={handleSaveProfile} className="space-y-6">

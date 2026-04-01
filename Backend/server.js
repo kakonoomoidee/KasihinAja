@@ -20,6 +20,7 @@ app.use("/api", apiRoutes);
 
 /**
  * Handles incoming WebSocket connections from OBS clients and assigns them to a streamer room.
+ * Also relays SUBATHON_SYNC messages from the dashboard to all overlay clients in the same room.
  *
  * @param {object} ws The WebSocket client instance.
  * @param {object} req The incoming HTTP upgrade request.
@@ -28,10 +29,29 @@ app.use("/api", apiRoutes);
 const handleWsConnection = (ws, req) => {
   const urlParams = new URLSearchParams(req.url.split("?")[1]);
   const streamerAddress = urlParams.get("streamer");
-  
+
   if (streamerAddress) {
     ws.streamerRoom = streamerAddress.toLowerCase();
   }
+
+  ws.on("message", (raw) => {
+    try {
+      const data = JSON.parse(raw.toString());
+      if (data.type === "SUBATHON_SYNC" && ws.streamerRoom) {
+        console.log(`Subathon [SYNC] | room=${ws.streamerRoom} | active=${data.payload?.isActive} | remaining=${data.payload?.remaining}`);
+        wss.clients.forEach((client) => {
+          if (client !== ws && client.readyState === WebSocket.OPEN && client.streamerRoom === ws.streamerRoom) {
+            client.send(JSON.stringify({
+              type: "SUBATHON_UPDATE",
+              payload: data.payload,
+            }));
+          }
+        });
+      }
+    } catch {
+      // Non-fatal: malformed message ignored.
+    }
+  });
 };
 
 wss.on("connection", handleWsConnection);

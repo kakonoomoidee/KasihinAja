@@ -1,6 +1,6 @@
 const { ethers } = require("ethers");
 const { filterMessage } = require("./aiFilter");
-const { DonationHistory, StreamerProfile } = require("../models");
+const { DonationHistory, StreamerProfile, Leaderboard } = require("../models");
 const { verifyToken } = require("./token");
 
 const DonationRouter = require("./DonationRouter.json");
@@ -68,6 +68,24 @@ const handleEvent = async (donor, streamer, amount, message, donationToken, wss)
     });
 
     console.log(`Donation [SAVED] | ${donor} -> ${streamer} | ${ethAmount} ETH`);
+
+    const [leaderEntry, created] = await Leaderboard.findOrCreate({
+      where: {
+        streamer_address: streamer.toLowerCase(),
+        donor_address: donor.toLowerCase(),
+      },
+      defaults: {
+        donor_name: donorName,
+        total_amount_eth: ethAmount,
+      },
+    });
+    if (!created) {
+      leaderEntry.total_amount_eth = parseFloat(leaderEntry.total_amount_eth) + ethAmount;
+      leaderEntry.donor_name = donorName;
+      leaderEntry.updated_at = new Date();
+      leaderEntry.changed("total_amount_eth", true);
+      await leaderEntry.save();
+    }
 
     if (profile) {
       const newCurrent = parseFloat(profile.milestone_current || 0) + parseFloat(ethAmount);
