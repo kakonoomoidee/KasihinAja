@@ -272,23 +272,28 @@ const banDonor = async (req, res) => {
 };
 
 /**
- * Persists the subathon end timestamp to the streamer profile for restart-safe recovery.
+ * Persists the subathon runtime state to the streamer profile.
  *
- * @param {object} req The Express request object. Expects body.subathon_end_time (BIGINT ms or null).
+ * @param {object} req The Express request object. Body may contain subathon_end_time (BIGINT ms or null)
+ *   and is_subathon_active (boolean).
  * @param {object} res The Express response object.
  * @returns {Promise<void>}
  */
 const updateSubathonEndTime = async (req, res) => {
   try {
     const { address } = req.params;
-    const { subathon_end_time } = req.body;
+    const { subathon_end_time, is_subathon_active } = req.body;
     const [profile] = await StreamerProfile.findOrCreate({
       where: { wallet_address: address },
       defaults: {},
     });
-    profile.subathon_end_time = subathon_end_time ?? null;
+    if (subathon_end_time !== undefined) profile.subathon_end_time = subathon_end_time ?? null;
+    if (is_subathon_active !== undefined) profile.is_subathon_active = !!is_subathon_active;
     await profile.save();
-    res.json({ subathon_end_time: profile.subathon_end_time });
+    res.json({
+      subathon_end_time: profile.subathon_end_time,
+      is_subathon_active: profile.is_subathon_active,
+    });
   } catch (error) {
     res.status(500).json({ error: "Server error" });
   }

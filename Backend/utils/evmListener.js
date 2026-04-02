@@ -92,6 +92,36 @@ const handleEvent = async (donor, streamer, amount, message, donationToken, wss)
       const target = parseFloat(profile.milestone_target || 0);
 
       profile.milestone_current = newCurrent;
+
+      if (profile.is_subathon_active) {
+        const rules = Array.isArray(profile.subathon_config) ? profile.subathon_config : [];
+        const matched = rules.find((rule) => Math.abs(parseFloat(rule.price_eth) - ethAmount) < 1e-9);
+        if (matched) {
+          const addedSecs = parseInt(matched.duration_seconds, 10);
+          if (addedSecs > 0) {
+            const now = Date.now();
+            const currentEnd = profile.subathon_end_time ? parseInt(profile.subathon_end_time, 10) : now;
+            const newEnd = (currentEnd > now ? currentEnd : now) + addedSecs * 1000;
+            profile.subathon_end_time = newEnd;
+            console.log(`Subathon [RULE-MATCH] | room=${streamer.toLowerCase()} | rule=${matched.price_eth}ETH -> +${addedSecs}s | newEnd=${new Date(newEnd).toISOString()}`);
+            wss.clients.forEach((client) => {
+              if (client.readyState === 1 && client.streamerRoom === streamer.toLowerCase()) {
+                client.send(JSON.stringify({
+                  type: "SUBATHON_UPDATE",
+                  payload: {
+                    endTime: newEnd,
+                    remaining: Math.max(0, (newEnd - now) / 1000),
+                    isActive: true,
+                  },
+                }));
+              }
+            });
+          }
+        } else {
+          console.log(`Subathon [NO-MATCH] | room=${streamer.toLowerCase()} | amount=${ethAmount}ETH | no rule matched`);
+        }
+      }
+
       await profile.save();
 
       wss.clients.forEach((client) => {

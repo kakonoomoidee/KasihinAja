@@ -1,24 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import { WS_URL } from "../utils/config";
-
-/**
- * Formats a total seconds value into a HH:MM:SS string.
- *
- * @param {number} totalSeconds The total seconds to format.
- * @returns {string} Zero-padded HH:MM:SS string.
- */
-const formatClock = (totalSeconds) => {
-  const s = Math.max(0, Math.floor(totalSeconds));
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  const sec = s % 60;
-  return [h, m, sec].map((v) => String(v).padStart(2, "0")).join(":");
-};
+import { formatClock } from "../utils/timeUtils";
 
 /**
  * OBS browser-source subathon timer overlay.
- * Clean text-only display with an animated "+X" addition indicator.
+ * Receives SUBATHON_UPDATE events via WebSocket and maintains its own
+ * one-second tick to stay accurate between syncs. Respects isActive flag.
  *
  * @returns {React.ReactElement} The transparent subathon overlay element.
  */
@@ -85,8 +73,8 @@ export default function SubathonOverlay() {
                 setAddedSeconds(Math.round(diff));
                 setShowAdded(true);
                 clearTimeout(addedTimerRef.current);
-                // Hide the "+X" text after 2.5 seconds
-                addedTimerRef.current = setTimeout(() => setShowAdded(false), 2500);
+                // Hide the "+X" text after 3 seconds for better visibility
+                addedTimerRef.current = setTimeout(() => setShowAdded(false), 3000);
               }
             }
             
@@ -146,23 +134,23 @@ export default function SubathonOverlay() {
     <div className="absolute inset-0 bg-transparent flex items-start justify-start p-8 overflow-hidden font-sans select-none">
       <style>
         {`
-          @keyframes slideUpFade {
-            0% { opacity: 0; transform: translateY(15px) scale(0.8); }
-            15% { opacity: 1; transform: translateY(0) scale(1.1); }
-            30% { transform: scale(1); }
-            80% { opacity: 1; transform: translateY(-5px); }
-            100% { opacity: 0; transform: translateY(-15px); }
+          @keyframes popInFadeOut {
+            0% { opacity: 0; transform: scale(0.5) translateY(10px); }
+            15% { opacity: 1; transform: scale(1.1) translateY(-2px); }
+            30% { transform: scale(1) translateY(0); opacity: 1; }
+            80% { transform: scale(1) translateY(0); opacity: 1; }
+            100% { opacity: 0; transform: translateY(-5px); }
           }
           .animate-added-time {
-            animation: slideUpFade 2.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation: popInFadeOut 3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
           }
         `}
       </style>
 
-      <div className="flex items-center gap-4">
-        {/* Pure Timer Text */}
+      <div className="flex items-center gap-6">
+        {/* Timer Text (e.g., 1d 02h 30m 45s) */}
         <div 
-          className="text-7xl font-black tabular-nums drop-shadow-[0_4px_15px_rgba(0,0,0,0.8)]"
+          className="text-6xl font-black tabular-nums drop-shadow-[0_4px_15px_rgba(0,0,0,0.8)]"
           style={{ 
             fontFamily: "'Courier New', Courier, monospace",
             color: timerColor,
@@ -175,10 +163,10 @@ export default function SubathonOverlay() {
         {/* Added Time Pop-up (+Xs) */}
         {showAdded && (
           <div 
-            className="text-5xl font-black text-emerald-400 drop-shadow-[0_4px_10px_rgba(0,0,0,0.8)] animate-added-time"
+            className="text-5xl font-black text-emerald-400 drop-shadow-[0_4px_10px_rgba(0,0,0,0.9)] animate-added-time"
             style={{
               fontFamily: "'Courier New', Courier, monospace",
-              textShadow: "0 0 15px rgba(52,211,153,0.6)"
+              textShadow: "0 0 20px rgba(52,211,153,0.8)"
             }}
           >
             +{addedSeconds}s
